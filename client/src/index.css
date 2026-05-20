@@ -1,0 +1,229 @@
+/* ── Google Fonts (must be first) ──────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Variables ─────────────────────────────────────────────── */
+:root {
+  --bg:        #000000;
+  --surface:   #0D0D0D;
+  --surface2:  #141414;
+  --border:    rgba(255,255,255,0.09);
+  --violet:    #8B5CF6;
+  --pink:      #F472B6;
+  --gold:      #FBBF24;
+  --teal:      #2DD4BF;
+  --grad:      linear-gradient(135deg, #8B5CF6 0%, #F472B6 100%);
+  --grad-gold: linear-gradient(135deg, #FBBF24 0%, #F87171 100%);
+  --grad-teal: linear-gradient(135deg, #2DD4BF 0%, #8B5CF6 100%);
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+
+body {
+  background-color: #000000;
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* ── Components ────────────────────────────────────────────────── */
+@layer components {
+
+  /* Primary gradient button */
+  .btn-primary {
+    @apply relative font-bold rounded-2xl py-4 px-8 text-lg
+           flex items-center justify-center gap-3 transition-all duration-200
+           active:scale-95 cursor-pointer select-none overflow-hidden;
+    min-height: 60px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #F472B6 100%);
+    color: #fff;
+    box-shadow: 0 0 40px rgba(139,92,246,0.55), 0 4px 24px rgba(244,114,182,0.3);
+  }
+  .btn-primary:hover { filter: brightness(1.15); box-shadow: 0 0 55px rgba(139,92,246,0.75), 0 6px 30px rgba(244,114,182,0.45); }
+  .btn-primary::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .btn-primary:hover::before { opacity: 1; }
+
+  /* Ghost button */
+  .btn-secondary {
+    @apply font-semibold rounded-2xl py-4 px-8 text-lg
+           flex items-center justify-center gap-3 transition-all duration-200
+           active:scale-95 cursor-pointer select-none;
+    min-height: 60px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    backdrop-filter: blur(10px);
+  }
+  .btn-secondary:hover { background: rgba(255,255,255,0.12); border-color: rgba(139,92,246,0.5); box-shadow: 0 0 20px rgba(139,92,246,0.2); }
+
+  /* Glass card */
+  .card {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px;
+    padding: 20px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { border-color: rgba(139,92,246,0.45); box-shadow: 0 0 25px rgba(139,92,246,0.12); }
+
+  /* Glowing card (active state) */
+  .card-glow {
+    background: rgba(139,92,246,0.1);
+    border: 1px solid rgba(139,92,246,0.4);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 0 40px rgba(139,92,246,0.2), inset 0 1px 0 rgba(255,255,255,0.07);
+  }
+
+  /* Input */
+  .input {
+    @apply w-full rounded-2xl px-5 py-4 text-white text-base placeholder-gray-700
+           focus:outline-none transition-all duration-200;
+    min-height: 58px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+  }
+  .input:focus {
+    border-color: rgba(139,92,246,0.7);
+    background: rgba(139,92,246,0.07);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.2), 0 0 20px rgba(139,92,246,0.15);
+  }
+
+  /* Gradient text */
+  .grad-text {
+    background: var(--grad);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .grad-text-gold {
+    background: var(--grad-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Pill badge */
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold;
+  }
+}
+
+/* ── Avatar ────────────────────────────────────────────────────── */
+.avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 18px;
+  color: #fff;
+  flex-shrink: 0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ── Background orbs ───────────────────────────────────────────── */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+  opacity: 0.28;
+}
+
+/* ── Animations ────────────────────────────────────────────────── */
+.fade-in  { animation: fadeIn  0.4s ease-out; }
+.slide-up { animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.pop-in   { animation: popIn   0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes popIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50%       { transform: translateY(-12px) rotate(2deg); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px currentColor; }
+  50%       { box-shadow: 0 0 25px currentColor, 0 0 50px currentColor; }
+}
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(8px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(8px) rotate(-360deg); }
+}
+@keyframes floatDrift {
+  0%   { transform: translateY(0px)   translateX(0px)   rotate(0deg);   }
+  33%  { transform: translateY(-14px) translateX(6px)   rotate(4deg);   }
+  66%  { transform: translateY(-6px)  translateX(-8px)  rotate(-3deg);  }
+  100% { transform: translateY(0px)   translateX(0px)   rotate(0deg);   }
+}
+@keyframes floatDriftR {
+  0%   { transform: translateY(0px)  translateX(0px)  rotate(0deg);  }
+  33%  { transform: translateY(-10px) translateX(-5px) rotate(-5deg); }
+  66%  { transform: translateY(-18px) translateX(7px)  rotate(3deg);  }
+  100% { transform: translateY(0px)  translateX(0px)  rotate(0deg);  }
+}
+
+.animate-float       { animation: float 5s ease-in-out infinite; }
+.animate-shimmer     { animation: shimmer 3s linear infinite; }
+.animate-glow-pulse  { animation: glow-pulse 2s ease-in-out infinite; }
+
+/* ── Gradient border trick ─────────────────────────────────────── */
+.grad-border {
+  position: relative;
+}
+.grad-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--grad);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+}
+
+/* ── Video ─────────────────────────────────────────────────────── */
+video { border-radius: 20px; object-fit: cover; }
+
+/* ── Noise texture overlay ─────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 9999;
+}
