@@ -36,3 +36,41 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(e.request))
   );
 });
+
+// ── Push notification received ─────────────────────────────────
+self.addEventListener('push', e => {
+  let data = {};
+  try { data = e.data?.json() || {}; } catch {}
+
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'PRANA ✨', {
+      body:    data.body  || '',
+      icon:    data.icon  || '/icon-192.png',
+      badge:   '/icon-192.png',
+      tag:     data.tag   || 'prana',
+      vibrate: [100, 50, 100],
+      data:    { url: data.url || '/home' },
+    })
+  );
+});
+
+// ── Notification click → open/focus the app ───────────────────
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/home';
+
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // If app is already open somewhere, focus it
+      for (const client of list) {
+        if ('focus' in client) {
+          client.focus();
+          client.navigate(url);
+          return;
+        }
+      }
+      // Otherwise open a new window
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});

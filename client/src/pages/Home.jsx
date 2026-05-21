@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../lib/api';
 import FriendCard from '../components/FriendCard';
+import usePushNotifications from '../hooks/usePushNotifications';
 
 const PRESENCE_OPTIONS = [
   { key: 'free',       emoji: '🟢', label: "I'm Free",      hint: 'Your buddies can see you\'re available',  color: '#10B981', grad: 'linear-gradient(135deg,#10B981,#059669)' },
@@ -16,6 +17,7 @@ export default function Home() {
   const { user, logout, updateCity } = useAuth();
   const socket = useSocket();
   const nav = useNavigate();
+  usePushNotifications(); // request permission + register subscription
 
   const [friends, setFriends]               = useState([]);
   const [requests, setRequests]             = useState([]);

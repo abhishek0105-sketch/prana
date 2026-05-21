@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { v4: uuid } = require('uuid');
 const db = require('../db');
 const { userSockets } = require('../socketState'); // shared with routes
+const { sendPush } = require('../pushService');
 
 // In-memory presence map: { userId: 'free' | 'busy' | 'in-hangout' | 'offline' }
 const presence = {};
@@ -59,6 +60,22 @@ module.exports = (io) => {
     // User changes their status
     socket.on('set-presence', (status) => {
       broadcastPresence(status);
+
+      // Push notification to offline friends when someone goes free
+      if (status === 'free') {
+        const friendIds = getFriendIds(uid);
+        friendIds.forEach(fid => {
+          if (!userSockets[fid]) { // friend is offline — push them
+            sendPush(fid, {
+              title: `${socket.user.name} is free! 🟢`,
+              body: 'Tap to start a hangout',
+              icon: '/icon-192.png',
+              tag:  `free-${uid}`,  // replaces previous "free" ping from same person
+              url:  '/home',
+            });
+          }
+        });
+      }
     });
 
     // ── Hangout room ───────────────────────────────────────────

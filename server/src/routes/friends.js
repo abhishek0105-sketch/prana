@@ -3,6 +3,7 @@ const { v4: uuid } = require('uuid');
 const db   = require('../db');
 const auth = require('../middleware/auth');
 const { userSockets } = require('../socketState');
+const { sendPush } = require('../pushService');
 
 // Helper: emit to a user if they're online
 const emitTo = (io, userId, event, data) => {
@@ -97,13 +98,22 @@ router.post('/request', auth, (req, res) => {
     status: 'pending', created_at: Date.now(),
   });
 
-  // Notify the target user instantly if they're online
+  // Notify the target user — socket if online, push if offline
   emitTo(req.io, addressee_id, 'friend-request', {
     id,
     user_id:      req.user.id,
     name:         req.user.name,
     email:        req.user.email,
   });
+  if (!userSockets[addressee_id]) {
+    sendPush(addressee_id, {
+      title: `${req.user.name} wants to be buddies 👋`,
+      body:  'Open PRANA to accept',
+      icon:  '/icon-192.png',
+      tag:   `req-${id}`,
+      url:   '/home',
+    });
+  }
 
   res.json({ ok: true, id });
 });

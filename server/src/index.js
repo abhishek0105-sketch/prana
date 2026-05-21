@@ -54,6 +54,7 @@ app.use('/api/hangouts', require('./routes/hangouts'));
 app.use('/api/places',   require('./routes/places'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/invites',  require('./routes/invites'));
+app.use('/api/push',     require('./routes/push'));
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'PRANA' }));
 
