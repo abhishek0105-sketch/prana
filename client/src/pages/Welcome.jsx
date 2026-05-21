@@ -151,7 +151,7 @@ export default function Welcome() {
             ))}
           </div>
           <p className="text-gray-600 text-xs">
-            <span className="text-gray-400 font-semibold">Hundreds</span> of friendships kept alive
+            <span className="text-gray-400 font-semibold">Hundreds</span> of buddies kept close
           </p>
         </div>
 

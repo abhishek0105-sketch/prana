@@ -34,7 +34,7 @@ export default function ToastCountdown({ by, onDone }) {
         <div className="flex flex-col items-center gap-6 fade-in">
           <div className="text-9xl" style={{ fontSize: '8rem', animation: 'float 0.5s ease-in-out infinite alternate' }}>🥂</div>
           <h2 className="text-5xl font-black glow-text" style={{ color: '#F59E0B' }}>Cheers!</h2>
-          <p className="text-gray-400 text-xl">To friendship 🎉</p>
+          <p className="text-gray-400 text-xl">To you two 🎉</p>
 
           {/* Confetti dots */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">

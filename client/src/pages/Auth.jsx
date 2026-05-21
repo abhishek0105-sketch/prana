@@ -78,7 +78,7 @@ export default function Auth() {
           {mode === 'signup' && (
             <div>
               <label className="text-gray-400 font-semibold block mb-2 text-sm uppercase tracking-wide">Your name</label>
-              <input className="input" placeholder="What do your friends call you?" value={form.name}
+              <input className="input" placeholder="What do your buddies call you?" value={form.name}
                 onChange={set('name')} autoComplete="name" />
             </div>
           )}

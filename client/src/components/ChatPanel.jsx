@@ -28,7 +28,7 @@ export default function ChatPanel({ messages, onSend, userId }) {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <p className="text-4xl mb-2">💬</p>
-            <p className="text-sm">Say hi to your friend!</p>
+            <p className="text-sm">Say hi to your buddy!</p>
           </div>
         )}
         {messages.map(m => {

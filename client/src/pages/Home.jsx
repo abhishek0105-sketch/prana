@@ -7,8 +7,8 @@ import api from '../lib/api';
 import FriendCard from '../components/FriendCard';
 
 const PRESENCE_OPTIONS = [
-  { key: 'free',       emoji: '🟢', label: "I'm Free",      hint: 'Friends can see you\'re available',  color: '#10B981', grad: 'linear-gradient(135deg,#10B981,#059669)' },
-  { key: 'busy',       emoji: '🔴', label: "I'm Busy",       hint: 'Friends know you\'re unavailable',   color: '#EF4444', grad: 'linear-gradient(135deg,#EF4444,#DC2626)' },
+  { key: 'free',       emoji: '🟢', label: "I'm Free",      hint: 'Your buddies can see you\'re available',  color: '#10B981', grad: 'linear-gradient(135deg,#10B981,#059669)' },
+  { key: 'busy',       emoji: '🔴', label: "I'm Busy",       hint: 'Your buddies know you\'re unavailable',   color: '#EF4444', grad: 'linear-gradient(135deg,#EF4444,#DC2626)' },
   { key: 'in-hangout', emoji: '🟡', label: 'In a Hangout',  hint: 'You\'re currently hanging out',      color: '#F59E0B', grad: 'linear-gradient(135deg,#F59E0B,#D97706)' },
 ];
 
@@ -41,7 +41,7 @@ export default function Home() {
     // Real-time friend updates — no refresh needed
     socket.on('friend-request', () => {
       loadRequests();
-      showToast('📩 New friend request!');
+      showToast('📩 New buddy request!');
     });
     socket.on('friend-accepted', ({ name }) => {
       loadFriends();
@@ -83,7 +83,7 @@ export default function Home() {
   const acceptRequest = async (fid) => {
     await api.post('/friends/accept', { friendship_id: fid });
     loadFriends(); loadRequests();
-    showToast('New friend added! 🥂');
+    showToast('New buddy added! 🥂');
   };
 
   const declineRequest = async (fid) => {
@@ -212,7 +212,7 @@ export default function Home() {
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />
               {freeFriends.length === 1
                 ? `${freeFriends[0].name.split(' ')[0]} is free right now!`
-                : `${freeFriends.length} friends are free right now!`}
+                : `${freeFriends.length} buddies are free right now!`}
             </p>
             <div className="flex flex-wrap gap-2">
               {freeFriends.map(f => (
@@ -278,9 +278,9 @@ export default function Home() {
             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="text-6xl mb-5">👫</div>
             <p className="text-white font-display font-bold text-2xl mb-2">Your crew awaits</p>
-            <p className="text-gray-500 mb-8 leading-relaxed">Add your college friends and start hanging out from anywhere in the world</p>
+            <p className="text-gray-500 mb-8 leading-relaxed">Add your college buddies and start hanging out from anywhere in the world</p>
             <button className="btn-primary mx-auto w-fit" onClick={() => setPanel('add')}>
-              <UserPlus size={20} /> Add Your First Friend
+              <UserPlus size={20} /> Add Your First Buddy
             </button>
           </div>
         ) : (
@@ -310,7 +310,7 @@ export default function Home() {
             {panel === 'presence' && (
               <div className="flex flex-col gap-4">
                 <h3 className="text-2xl font-display font-black text-white">Your Status</h3>
-                <p className="text-gray-500">Your friends see this in real time</p>
+                <p className="text-gray-500">Your buddies see this in real time</p>
                 {PRESENCE_OPTIONS.map((opt) => (
                   <button key={opt.key} onClick={() => setPresence(opt.key)}
                     className="flex items-center gap-4 p-4 rounded-2xl transition-all active:scale-[0.98]"
@@ -340,7 +340,7 @@ export default function Home() {
             {/* ── Add Friend ── */}
             {panel === 'add' && (
               <div className="flex flex-col gap-5">
-                <h3 className="text-2xl font-display font-black text-white">Add a Friend</h3>
+                <h3 className="text-2xl font-display font-black text-white">Add a Buddy</h3>
 
                 {/* Share your email */}
                 <div className="rounded-2xl p-4" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
@@ -359,7 +359,7 @@ export default function Home() {
                 {/* How it works */}
                 <div className="rounded-2xl p-4 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <p className="font-bold text-white mb-2">How it works</p>
-                  <p className="text-gray-500 mb-1">1. Ask your friend to sign up at PRANA</p>
+                  <p className="text-gray-500 mb-1">1. Ask your buddy to sign up at PRANA</p>
                   <p className="text-gray-500">2. Search their email below to send a request</p>
                 </div>
 
@@ -408,7 +408,7 @@ export default function Home() {
             {/* ── Friend Requests ── */}
             {panel === 'requests' && (
               <div className="flex flex-col gap-5">
-                <h3 className="text-2xl font-display font-black text-white">Friend Requests</h3>
+                <h3 className="text-2xl font-display font-black text-white">Buddy Requests</h3>
                 {requests.length === 0
                   ? (
                     <div className="text-center py-12">
