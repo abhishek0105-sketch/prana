@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PhoneOff, MessageCircle, MapPin, Wine, Mic, MicOff, Video, VideoOff, X, GlassWater } from 'lucide-react';
+import { PhoneOff, MessageCircle, MapPin, Wine, Mic, MicOff, Video, VideoOff, X, GlassWater, Film } from 'lucide-react';
 import ToastCountdown from '../components/ToastCountdown';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../lib/api';
 import VideoRoom from '../components/VideoRoom';
 import ChatPanel from '../components/ChatPanel';
+import WatchTogether from '../components/WatchTogether';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -33,6 +34,8 @@ export default function Hangout() {
   const [toastBy, setToastBy]               = useState('');
   const [peerConnected, setPeerConnected]   = useState(false);
   const [notification, setNotification]     = useState('');
+  const [watchVideoId, setWatchVideoId]     = useState(null);
+  const [watchControl, setWatchControl]     = useState(null);
 
   const localVideoRef  = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -164,6 +167,17 @@ export default function Hangout() {
         setToastActive(true);
       });
 
+      socket.on('watch-start', ({ videoId, by }) => {
+        setWatchVideoId(videoId);
+        if (activeTab !== 'watch') {
+          showNotif(`🎬 ${by} started a video — tap 🎬 to join`);
+        }
+      });
+
+      socket.on('watch-control', ({ action, t }) => {
+        setWatchControl({ action, t, ts: Date.now() });
+      });
+
       // 3️⃣ Join room
       socket.emit('join-hangout', id);
     };
@@ -182,6 +196,8 @@ export default function Hangout() {
       socket.off('toast-start');
       socket.off('round-sent');
       socket.off('place-selected');
+      socket.off('watch-start');
+      socket.off('watch-control');
       localStreamRef.current?.getTracks().forEach(t => t.stop());
       pcRef.current?.close();
     };
@@ -362,6 +378,25 @@ export default function Hangout() {
             }}>
             <MessageCircle size={20} />
           </button>
+          <button onClick={() => setActiveTab(t => t === 'watch' ? null : 'watch')}
+            className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all active:scale-90"
+            title="Watch Together"
+            style={activeTab === 'watch' ? {
+              background: 'linear-gradient(135deg, #8B5CF6, #F472B6)',
+              border: '1px solid transparent',
+              color: '#fff',
+              boxShadow: '0 0 15px rgba(139,92,246,0.4)',
+            } : watchVideoId ? {
+              background: 'rgba(139,92,246,0.15)',
+              border: '1px solid rgba(139,92,246,0.35)',
+              color: '#A78BFA',
+            } : {
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#fff',
+            }}>
+            <Film size={20} />
+          </button>
           <button onClick={startToast}
             className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all active:scale-90"
             title="Synchronized Toast 🥂"
@@ -388,16 +423,18 @@ export default function Hangout() {
       {activeTab && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActiveTab(null)} />
-          <div className="relative rounded-t-[2rem] slide-up max-w-lg mx-auto w-full overflow-hidden"
+          <div className="relative rounded-t-[2rem] slide-up max-w-lg mx-auto w-full overflow-hidden overflow-y-auto"
             style={{
-              maxHeight: '70vh',
+              maxHeight: activeTab === 'watch' ? '85vh' : '70vh',
               background: '#0F0F1E',
               border: '1px solid rgba(255,255,255,0.08)',
               borderBottom: 'none',
             }}>
             <div className="flex items-center justify-between px-6 pt-5 pb-3">
               <h3 className="text-xl font-display font-black text-white">
-                {activeTab === 'chat' ? '💬 Chat' : '📍 Find a Place'}
+                {activeTab === 'chat'   ? '💬 Chat'
+               : activeTab === 'watch' ? '🎬 Watch Together'
+               :                         '📍 Find a Place'}
               </h3>
               <button onClick={() => setActiveTab(null)}
                 className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
@@ -418,6 +455,15 @@ export default function Hangout() {
                   🗺️ Open Place Finder
                 </button>
               </div>
+            )}
+
+            {activeTab === 'watch' && (
+              <WatchTogether
+                hangoutId={id}
+                socket={socket}
+                remoteVideoId={watchVideoId}
+                remoteControl={watchControl}
+              />
             )}
           </div>
         </div>

@@ -118,6 +118,17 @@ module.exports = (io) => {
       io.to(hangoutId).emit('round-sent', { amount, message, sender_name: socket.user.name, receiver_name });
     });
 
+    // ── Watch Together ─────────────────────────────────────────
+    socket.on('watch-start', ({ hangoutId, videoId }) => {
+      if (typeof videoId !== 'string' || videoId.length > 20) return;
+      socket.to(hangoutId).emit('watch-start', { videoId, by: socket.user.name });
+    });
+
+    socket.on('watch-control', ({ hangoutId, action, t }) => {
+      if (!['play', 'pause', 'seek'].includes(action)) return;
+      socket.to(hangoutId).emit('watch-control', { action, t: Number(t) || 0, by: socket.user.name });
+    });
+
     socket.on('video-toggle', ({ hangoutId, enabled }) => socket.to(hangoutId).emit('video-toggle', { userId: uid, enabled }));
     socket.on('audio-toggle', ({ hangoutId, enabled }) => socket.to(hangoutId).emit('audio-toggle', { userId: uid, enabled }));
 
