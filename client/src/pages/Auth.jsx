@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, Eye, EyeOff, Plane, Heart, Wine, Smile, Globe, Star } from 'lucide-react';
+import api from '../lib/api';
 
 const AUTH_FLOATERS = [
   { Icon: Plane,  top: 12, left:  6, size: 20, op: 0.10, dur: 7,  delay: 0   },
@@ -24,6 +25,8 @@ export default function Auth() {
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
+  const inviteCode = params.get('invite');
+
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setLoading(true);
@@ -33,6 +36,10 @@ export default function Auth() {
         await register(form.name.trim(), form.email, form.password);
       } else {
         await login(form.email, form.password);
+      }
+      // Auto-connect with the person who shared the invite link
+      if (inviteCode) {
+        await api.post(`/invites/${inviteCode}/redeem`).catch(() => {});
       }
       nav('/home');
     } catch (err) {

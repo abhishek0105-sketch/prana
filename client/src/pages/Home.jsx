@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Bell, LogOut, MapPin, Users, Search, Check, X, Clock, Sparkles, Zap, Plane, Heart, Wine, Smile, Globe } from 'lucide-react';
+import { UserPlus, Bell, LogOut, MapPin, Users, Search, Check, X, Clock, Sparkles, Zap, Plane, Heart, Wine, Smile, Globe, Link } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../lib/api';
@@ -28,6 +28,7 @@ export default function Home() {
   const [cityInput, setCityInput]           = useState(user?.city || '');
   const [loading, setLoading]               = useState(false);
   const [toast, setToast]                   = useState('');
+  const [inviteCopied, setInviteCopied]     = useState(false);
 
   useEffect(() => { loadFriends(); loadRequests(); }, []);
 
@@ -95,6 +96,16 @@ export default function Home() {
     await updateCity(cityInput);
     showToast('Location updated! 📍');
     setPanel(null);
+  };
+
+  const copyInviteLink = async () => {
+    try {
+      const { code } = await api.post('/invites');
+      const link = `${window.location.origin}/invite/${code}`;
+      await navigator.clipboard.writeText(link);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 3000);
+    } catch { showToast('Could not generate link'); }
   };
 
   const startHangout = async (friendId) => {
@@ -342,25 +353,23 @@ export default function Home() {
               <div className="flex flex-col gap-5">
                 <h3 className="text-2xl font-display font-black text-white">Add a Buddy</h3>
 
-                {/* Share your email */}
-                <div className="rounded-2xl p-4" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                  <p className="text-xs text-violet-400 font-bold uppercase tracking-widest mb-2">Your PRANA email</p>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-white font-semibold truncate text-sm">{user?.email}</p>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(user?.email); showToast('📋 Copied!'); }}
-                      className="text-sm font-bold px-3 py-1.5 rounded-xl flex-shrink-0"
-                      style={{ background: 'rgba(139,92,246,0.2)', color: '#A78BFA' }}>
-                      Copy
-                    </button>
-                  </div>
+                {/* ── Invite link — primary CTA ── */}
+                <div className="rounded-2xl p-4" style={{ background: 'rgba(139,92,246,0.10)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                  <p className="text-xs text-violet-400 font-bold uppercase tracking-widest mb-1">Invite via link</p>
+                  <p className="text-gray-500 text-sm mb-3">Share on WhatsApp · they sign up · you're instantly connected 🥂</p>
+                  <button
+                    onClick={copyInviteLink}
+                    className="w-full font-bold rounded-xl py-3 text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
+                    style={{ background: 'linear-gradient(135deg,#8B5CF6,#F472B6)', color: '#fff', boxShadow: '0 0 24px rgba(139,92,246,0.4)' }}>
+                    <Link size={15} />
+                    {inviteCopied ? '✅ Link copied! Send it now' : 'Copy Invite Link'}
+                  </button>
                 </div>
 
-                {/* How it works */}
-                <div className="rounded-2xl p-4 text-sm" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="font-bold text-white mb-2">How it works</p>
-                  <p className="text-gray-500 mb-1">1. Ask your buddy to sign up at PRANA</p>
-                  <p className="text-gray-500">2. Search their email below to send a request</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                  <span className="text-gray-600 text-xs font-semibold">or find by email</span>
+                  <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
                 </div>
 
                 <div className="flex gap-3">

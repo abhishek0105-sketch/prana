@@ -7,6 +7,7 @@ import Hangout from './pages/Hangout';
 import PlaceFinder from './pages/PlaceFinder';
 import SendRound from './pages/SendRound';
 import Memories from './pages/Memories';
+import Invite from './pages/Invite';
 import InstallPrompt from './components/InstallPrompt';
 
 function Protected({ children }) {
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/hangout/:id/places" element={<Protected><PlaceFinder /></Protected>} />
         <Route path="/hangout/:id/send-round" element={<Protected><SendRound /></Protected>} />
         <Route path="/memories" element={<Protected><Memories /></Protected>} />
+        <Route path="/invite/:code" element={<Invite />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <InstallPrompt />
