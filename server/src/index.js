@@ -41,11 +41,18 @@ app.use(helmet({
 
 app.use(cors(corsOptions));
 
+// Raw body for Stripe webhook — must come BEFORE express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
 // Limit request body to 50 KB — blocks payload-bloat attacks
 app.use(express.json({ limit: '50kb' }));
 
 // Make socket.io instance available in all route handlers via req.io
 app.use((req, _, next) => { req.io = io; next(); });
+
+// Also expose io via socketState so webhook (no req context) can emit
+const socketState = require('./socketState');
+socketState.io = io;;
 
 // ── Routes ─────────────────────────────────────────────────────
 app.use('/api/auth',     require('./routes/auth'));
