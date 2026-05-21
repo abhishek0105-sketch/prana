@@ -91,10 +91,13 @@ export default function Welcome() {
 
         <div className="text-center">
           <p className="text-white text-3xl font-display font-black leading-tight">
-            Your people are out there.
+            Friendships don't fade from fights.
           </p>
           <p className="text-3xl font-display font-black leading-tight grad-text mt-1">
-            Don't lose them.
+            They fade from silence.
+          </p>
+          <p className="text-gray-500 text-base mt-4 leading-relaxed">
+            Somewhere out there, your person is missing you too.
           </p>
         </div>
 
