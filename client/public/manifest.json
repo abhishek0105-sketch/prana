@@ -1,0 +1,26 @@
+{
+  "name": "PRANA — Be Together. From Anywhere.",
+  "short_name": "PRANA",
+  "description": "Hang out with your people no matter where life takes you.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#8B5CF6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["social", "lifestyle", "entertainment"]
+}
