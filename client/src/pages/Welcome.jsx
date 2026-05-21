@@ -91,7 +91,7 @@ export default function Welcome() {
 
         <div className="text-center">
           <p className="text-white text-3xl font-display font-black leading-tight">
-            Friendships don't fade from fights.
+            Bonds don't fade from fights.
           </p>
           <p className="text-3xl font-display font-black leading-tight grad-text mt-1">
             They fade from silence.
@@ -169,9 +169,6 @@ export default function Welcome() {
           I already have an account
         </button>
 
-        <p className="text-gray-800 text-xs text-center mt-1">
-          No ads · No algorithm · Just your people
-        </p>
       </div>
     </div>
   );
