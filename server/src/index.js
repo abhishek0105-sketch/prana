@@ -44,6 +44,9 @@ app.use(cors(corsOptions));
 // Limit request body to 50 KB — blocks payload-bloat attacks
 app.use(express.json({ limit: '50kb' }));
 
+// Make socket.io instance available in all route handlers via req.io
+app.use((req, _, next) => { req.io = io; next(); });
+
 // ── Routes ─────────────────────────────────────────────────────
 app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/friends',  require('./routes/friends'));

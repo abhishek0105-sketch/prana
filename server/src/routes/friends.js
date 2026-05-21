@@ -2,6 +2,13 @@ const router = require('express').Router();
 const { v4: uuid } = require('uuid');
 const db   = require('../db');
 const auth = require('../middleware/auth');
+const { userSockets } = require('../socketState');
+
+// Helper: emit to a user if they're online
+const emitTo = (io, userId, event, data) => {
+  const sid = userSockets[userId];
+  if (sid) io.to(sid).emit(event, data);
+};
 
 // Only expose safe fields — never send password or internal data
 const safeUser = (u) => u
@@ -89,6 +96,15 @@ router.post('/request', auth, (req, res) => {
     id, requester_id: req.user.id, addressee_id,
     status: 'pending', created_at: Date.now(),
   });
+
+  // Notify the target user instantly if they're online
+  emitTo(req.io, addressee_id, 'friend-request', {
+    id,
+    user_id:      req.user.id,
+    name:         req.user.name,
+    email:        req.user.email,
+  });
+
   res.json({ ok: true, id });
 });
 
@@ -104,6 +120,13 @@ router.post('/accept', auth, (req, res) => {
   if (!f) return res.status(404).json({ error: 'Request not found' });
 
   db.update('friendships', f => f.id === friendship_id, { status: 'accepted' });
+
+  // Notify the original requester instantly if they're online
+  emitTo(req.io, f.requester_id, 'friend-accepted', {
+    name: req.user.name,
+    email: req.user.email,
+  });
+
   res.json({ ok: true });
 });
 

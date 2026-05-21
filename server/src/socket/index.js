@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { v4: uuid } = require('uuid');
 const db = require('../db');
+const { userSockets } = require('../socketState'); // shared with routes
 
 // In-memory presence map: { userId: 'free' | 'busy' | 'in-hangout' | 'offline' }
 const presence = {};
@@ -12,9 +13,6 @@ const getFriendIds = (userId) => {
   );
   return friendships.map(f => f.requester_id === userId ? f.addressee_id : f.requester_id);
 };
-
-// Map userId → socketId for direct messaging
-const userSockets = {};
 
 module.exports = (io) => {
   io.use((socket, next) => {

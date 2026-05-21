@@ -37,7 +37,23 @@ export default function Home() {
     socket.emit('set-presence', myPresence);
     socket.on('friend-presence-map', (map) => setFriendPresence(map));
     socket.on('presence-update', ({ userId, status }) => setFriendPresence(p => ({ ...p, [userId]: status })));
-    return () => { socket.off('friend-presence-map'); socket.off('presence-update'); };
+
+    // Real-time friend updates — no refresh needed
+    socket.on('friend-request', () => {
+      loadRequests();
+      showToast('📩 New friend request!');
+    });
+    socket.on('friend-accepted', ({ name }) => {
+      loadFriends();
+      showToast(`🥂 ${name} accepted your request!`);
+    });
+
+    return () => {
+      socket.off('friend-presence-map');
+      socket.off('presence-update');
+      socket.off('friend-request');
+      socket.off('friend-accepted');
+    };
   }, [socket]);
 
   const setPresence = (status) => { setMyPresence(status); socket?.emit('set-presence', status); setPanel(null); };
