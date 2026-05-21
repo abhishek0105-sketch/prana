@@ -66,16 +66,32 @@ export default function SendRound() {
     if (!friend || !finalAmount) return;
     setError(''); setLoading(true);
     try {
+      // Try real Stripe checkout first
       const data = await api.post('/payments/checkout', {
         receiver_id: friend.id,
         amount:      finalAmount,
         message,
         hangout_id:  id,
       });
-      // Redirect to Stripe Checkout — user comes back to this page after payment
       window.location.href = data.url;
     } catch (err) {
-      setError(err.error || 'Could not create payment session');
+      if (err.error === 'Payments not configured yet') {
+        // Stripe not set up — fall back to virtual gesture
+        try {
+          await api.post('/payments/send', {
+            receiver_id: friend.id,
+            amount:      finalAmount,
+            message,
+            hangout_id:  id,
+          });
+          socket?.emit('round-sent', { hangoutId: id, amount: finalAmount, message, receiver_name: friend.name });
+          setPaid(true);
+        } catch (e) {
+          setError(e.error || 'Could not send round');
+        }
+      } else {
+        setError(err.error || 'Could not create payment session');
+      }
       setLoading(false);
     }
   };
@@ -212,7 +228,7 @@ export default function SendRound() {
       </button>
 
       <p className="text-gray-700 text-xs text-center mt-4 relative z-10">
-        Secured by Stripe · Your card details never touch PRANA's servers
+        Real payments powered by Stripe — coming soon
       </p>
     </div>
   );
