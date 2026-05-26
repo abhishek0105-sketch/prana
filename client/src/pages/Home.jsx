@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Bell, LogOut, MapPin, Users, Search, Check, X, Clock, Sparkles, Zap, Plane, Heart, Wine, Smile, Globe, Link } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../lib/api';
 import FriendCard from '../components/FriendCard';
+import IncomingHangout from '../components/IncomingHangout';
 import usePushNotifications from '../hooks/usePushNotifications';
 
 const PRESENCE_OPTIONS = [
@@ -30,7 +31,8 @@ export default function Home() {
   const [cityInput, setCityInput]           = useState(user?.city || '');
   const [loading, setLoading]               = useState(false);
   const [toast, setToast]                   = useState('');
-  const [inviteCopied, setInviteCopied]     = useState(false);
+  const [inviteCopied,     setInviteCopied]     = useState(false);
+  const [incomingHangout,  setIncomingHangout]  = useState(null);
 
   useEffect(() => { loadFriends(); loadRequests(); }, []);
 
@@ -51,11 +53,16 @@ export default function Home() {
       showToast(`🥂 ${name} accepted your request!`);
     });
 
+    socket.on('hangout-invite', (invite) => {
+      setIncomingHangout(invite);
+    });
+
     return () => {
       socket.off('friend-presence-map');
       socket.off('presence-update');
       socket.off('friend-request');
       socket.off('friend-accepted');
+      socket.off('hangout-invite');
     };
   }, [socket]);
 
@@ -479,6 +486,15 @@ export default function Home() {
           }}>
           {toast}
         </div>
+      )}
+
+      {/* ── Incoming hangout — full-screen call overlay ── */}
+      {incomingHangout && (
+        <IncomingHangout
+          invite={incomingHangout}
+          onJoin={() => { nav(`/hangout/${incomingHangout.hangoutId}`); setIncomingHangout(null); }}
+          onDecline={() => setIncomingHangout(null)}
+        />
       )}
     </div>
   );

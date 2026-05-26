@@ -1,13 +1,15 @@
-const jwt = require('jsonwebtoken');
+const jwt  = require('jsonwebtoken');
 const { v4: uuid } = require('uuid');
-const db = require('../db');
-const { userSockets } = require('../socketState'); // shared with routes
-const { sendPush } = require('../pushService');
+const db   = require('../db');
+const { userSockets } = require('../socketState');
+const { sendPush }    = require('../pushService');
 
-// In-memory presence map: { userId: 'free' | 'busy' | 'in-hangout' | 'offline' }
+// In-memory presence:  userId → status
 const presence = {};
 
-// Get all friend IDs for a user
+// In-memory room roster: hangoutId → { userId: { name, color, socketId } }
+const hangoutRooms = {};
+
 const getFriendIds = (userId) => {
   const friendships = db.find('friendships', f =>
     f.status === 'accepted' && (f.requester_id === userId || f.addressee_id === userId)
@@ -22,94 +24,136 @@ module.exports = (io) => {
     try {
       socket.user = jwt.verify(token, process.env.JWT_SECRET);
       next();
-    } catch {
-      next(new Error('Invalid token'));
-    }
+    } catch { next(new Error('Invalid token')); }
   });
 
   io.on('connection', (socket) => {
     const uid = socket.user.id;
     console.log(`[socket] ${socket.user.name} connected`);
 
-    // Track socket per user
     userSockets[uid] = socket.id;
 
-    // Set initial presence and notify friends
     presence[uid] = presence[uid] || 'free';
+
     const broadcastPresence = (status) => {
       presence[uid] = status;
-      const friendIds = getFriendIds(uid);
-      friendIds.forEach(fid => {
-        const fSocketId = userSockets[fid];
-        if (fSocketId) {
-          io.to(fSocketId).emit('presence-update', { userId: uid, status });
-        }
+      getFriendIds(uid).forEach(fid => {
+        const sid = userSockets[fid];
+        if (sid) io.to(sid).emit('presence-update', { userId: uid, status });
       });
     };
 
     broadcastPresence(presence[uid]);
 
-    // Send current presence of all friends to this user
     socket.on('get-friend-presence', () => {
-      const friendIds = getFriendIds(uid);
-      const presenceMap = {};
-      friendIds.forEach(fid => { presenceMap[fid] = presence[fid] || 'offline'; });
-      socket.emit('friend-presence-map', presenceMap);
+      const map = {};
+      getFriendIds(uid).forEach(fid => { map[fid] = presence[fid] || 'offline'; });
+      socket.emit('friend-presence-map', map);
     });
 
-    // User changes their status
     socket.on('set-presence', (status) => {
       broadcastPresence(status);
-
-      // Push notification to offline friends when someone goes free
       if (status === 'free') {
-        const friendIds = getFriendIds(uid);
-        friendIds.forEach(fid => {
-          if (!userSockets[fid]) { // friend is offline — push them
+        getFriendIds(uid).forEach(fid => {
+          if (!userSockets[fid]) {
             sendPush(fid, {
               title: `${socket.user.name} is free! 🟢`,
-              body: 'Tap to start a hangout',
-              icon: '/icon-192.png',
-              tag:  `free-${uid}`,  // replaces previous "free" ping from same person
-              url:  '/home',
+              body:  'Tap to start a hangout',
+              icon:  '/icon-192.png',
+              tag:   `free-${uid}`,
+              url:   '/home',
             });
           }
         });
       }
     });
 
-    // ── Hangout room ───────────────────────────────────────────
+    // ── Hangout room ───────────────────────────────────────────────
     socket.on('join-hangout', (hangoutId) => {
       socket.join(hangoutId);
       socket.hangoutId = hangoutId;
       broadcastPresence('in-hangout');
-      socket.to(hangoutId).emit('peer-joined', { userId: uid, name: socket.user.name, socketId: socket.id });
+
+      // Register in room roster
+      if (!hangoutRooms[hangoutId]) hangoutRooms[hangoutId] = {};
+      hangoutRooms[hangoutId][uid] = {
+        name:     socket.user.name,
+        color:    socket.user.avatar_color,
+        socketId: socket.id,
+      };
+
+      // Tell the new joiner who is already in the room
+      const existing = Object.entries(hangoutRooms[hangoutId])
+        .filter(([pid]) => pid !== uid)
+        .map(([userId, info]) => ({ userId, ...info }));
+      socket.emit('room-state', existing);
+
+      // Tell everyone else a new peer joined
+      socket.to(hangoutId).emit('peer-joined', {
+        userId:   uid,
+        name:     socket.user.name,
+        color:    socket.user.avatar_color,
+        socketId: socket.id,
+      });
     });
 
-    // Explicit hangout end
     socket.on('hangout-ended', ({ hangoutId }) => {
       socket.to(hangoutId).emit('hangout-ended', { by: socket.user.name });
       broadcastPresence('free');
     });
 
-    // ── WebRTC signaling ───────────────────────────────────────
-    socket.on('webrtc-offer',  ({ to, offer })      => io.to(to).emit('webrtc-offer',  { from: socket.id, offer }));
-    socket.on('webrtc-answer', ({ to, answer })     => io.to(to).emit('webrtc-answer', { from: socket.id, answer }));
-    socket.on('webrtc-ice',    ({ to, candidate })  => io.to(to).emit('webrtc-ice',    { from: socket.id, candidate }));
+    // ── Invite someone into a live hangout ─────────────────────────
+    socket.on('invite-to-hangout', ({ hangoutId, targetUserId }) => {
+      if (typeof targetUserId !== 'string') return;
 
-    // ── Chat ───────────────────────────────────────────────────
+      // Persist the invite in DB so the invitee passes the GET /hangouts/:id auth check
+      const hangout = db.findOne('hangouts', h => h.id === hangoutId);
+      if (!hangout) return;
+      const guestIds = hangout.guest_ids || [];
+      if (!guestIds.includes(targetUserId)) {
+        db.update('hangouts', h => h.id === hangoutId, { guest_ids: [...guestIds, targetUserId] });
+      }
+
+      // Names of everyone currently in the room
+      const roomNames = Object.values(hangoutRooms[hangoutId] || {}).map(p => p.name);
+
+      const targetSid = userSockets[targetUserId];
+      if (targetSid) {
+        io.to(targetSid).emit('hangout-invite', {
+          hangoutId,
+          from:         { userId: uid, name: socket.user.name, color: socket.user.avatar_color },
+          participants: roomNames,
+        });
+      } else {
+        // Invitee is offline — push them
+        sendPush(targetUserId, {
+          title: `${socket.user.name} wants you in the hangout 🥂`,
+          body:  roomNames.length > 1 ? `${roomNames.join(', ')} are waiting` : 'Come join!',
+          icon:  '/icon-192.png',
+          tag:   `invite-${hangoutId}`,
+          url:   `/hangout/${hangoutId}`,
+        });
+      }
+    });
+
+    // ── WebRTC signaling — relay with fromUserId so peers can track each other ─
+    socket.on('webrtc-offer',  ({ to, offer })     => io.to(to).emit('webrtc-offer',  { from: socket.id, fromUserId: uid, offer }));
+    socket.on('webrtc-answer', ({ to, answer })    => io.to(to).emit('webrtc-answer', { from: socket.id, fromUserId: uid, answer }));
+    socket.on('webrtc-ice',    ({ to, candidate }) => io.to(to).emit('webrtc-ice',    { from: socket.id, fromUserId: uid, candidate }));
+
+    // ── Chat ───────────────────────────────────────────────────────
     socket.on('chat-message', ({ hangoutId, content }) => {
       const msg = { id: uuid(), hangout_id: hangoutId, sender_id: uid, sender_name: socket.user.name, content, type: 'text', created_at: Date.now() };
       db.insert('messages', msg);
       io.to(hangoutId).emit('chat-message', msg);
     });
 
-    // ── Synchronized Toast 🥂 ──────────────────────────────────
+    // ── Toast ──────────────────────────────────────────────────────
     socket.on('toast-start', ({ hangoutId }) => {
       io.to(hangoutId).emit('toast-start', { by: socket.user.name });
     });
 
-    // ── Activity broadcasts ────────────────────────────────────
+    // ── Activity broadcasts ────────────────────────────────────────
     socket.on('place-selected', ({ hangoutId, place, forUser }) => {
       socket.to(hangoutId).emit('place-selected', { place, forUser, by: socket.user.name });
     });
@@ -118,7 +162,7 @@ module.exports = (io) => {
       io.to(hangoutId).emit('round-sent', { amount, message, sender_name: socket.user.name, receiver_name });
     });
 
-    // ── Watch Together ─────────────────────────────────────────
+    // ── Watch Together ─────────────────────────────────────────────
     socket.on('watch-start', ({ hangoutId, videoId }) => {
       if (typeof videoId !== 'string' || videoId.length > 20) return;
       socket.to(hangoutId).emit('watch-start', { videoId, by: socket.user.name });
@@ -129,16 +173,27 @@ module.exports = (io) => {
       socket.to(hangoutId).emit('watch-control', { action, t: Number(t) || 0, by: socket.user.name });
     });
 
-    socket.on('video-toggle', ({ hangoutId, enabled }) => socket.to(hangoutId).emit('video-toggle', { userId: uid, enabled }));
-    socket.on('audio-toggle', ({ hangoutId, enabled }) => socket.to(hangoutId).emit('audio-toggle', { userId: uid, enabled }));
+    socket.on('video-toggle', ({ hangoutId, enabled }) =>
+      socket.to(hangoutId).emit('video-toggle', { userId: uid, enabled }));
+    socket.on('audio-toggle', ({ hangoutId, enabled }) =>
+      socket.to(hangoutId).emit('audio-toggle', { userId: uid, enabled }));
 
-    // ── Disconnect ─────────────────────────────────────────────
+    // ── Disconnect ─────────────────────────────────────────────────
     socket.on('disconnect', () => {
       delete userSockets[uid];
       presence[uid] = 'offline';
+
       if (socket.hangoutId) {
+        // Remove from room roster
+        if (hangoutRooms[socket.hangoutId]) {
+          delete hangoutRooms[socket.hangoutId][uid];
+          if (Object.keys(hangoutRooms[socket.hangoutId]).length === 0) {
+            delete hangoutRooms[socket.hangoutId];
+          }
+        }
         socket.to(socket.hangoutId).emit('peer-left', { userId: uid, name: socket.user.name });
       }
+
       broadcastPresence('offline');
       console.log(`[socket] ${socket.user.name} disconnected`);
     });

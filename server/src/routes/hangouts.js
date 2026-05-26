@@ -49,7 +49,9 @@ router.post('/start', auth, (req, res) => {
 router.get('/:id', auth, (req, res) => {
   const hangout = db.findOne('hangouts', h =>
     h.id === req.params.id &&
-    (h.initiator_id === req.user.id || h.partner_id === req.user.id)
+    (h.initiator_id === req.user.id ||
+     h.partner_id   === req.user.id ||
+     (h.guest_ids || []).includes(req.user.id))
   );
   if (!hangout) return res.status(404).json({ error: 'Hangout not found' });
 
@@ -77,7 +79,9 @@ router.get('/:id', auth, (req, res) => {
 router.post('/:id/end', auth, (req, res) => {
   const hangout = db.findOne('hangouts', h =>
     h.id === req.params.id &&
-    (h.initiator_id === req.user.id || h.partner_id === req.user.id)
+    (h.initiator_id === req.user.id ||
+     h.partner_id   === req.user.id ||
+     (h.guest_ids || []).includes(req.user.id))
   );
   if (!hangout) return res.status(404).json({ error: 'Hangout not found' });
 
