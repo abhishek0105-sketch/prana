@@ -11,19 +11,25 @@ export function SocketProvider({ children }) {
   useEffect(() => {
     if (!user) { socket?.disconnect(); setSocket(null); return; }
 
-    const token = localStorage.getItem('prana_token');
-
-    // Dev: connect through Vite proxy (single origin, HTTPS handled automatically)
-    // Prod: connect directly to Railway backend URL
+    const token  = localStorage.getItem('prana_token');
     const SERVER = import.meta.env.VITE_API_URL || '/';
 
     const s = io(SERVER, {
-      auth: { token },
+      auth:       { token },
       transports: ['websocket', 'polling'],
+      reconnectionDelay:    1000,
+      reconnectionAttempts: Infinity, // keep trying — don't give up
     });
 
     s.on('connect',       ()  => console.log('[socket] connected'));
     s.on('connect_error', (e) => console.warn('[socket] error:', e.message));
+
+    // Re-announce presence after any reconnect so friends don't see you as offline
+    s.on('reconnect', () => {
+      console.log('[socket] reconnected — re-emitting presence');
+      s.emit('get-friend-presence');
+      // The Home component will re-emit set-presence via its own effect
+    });
 
     setSocket(s);
     return () => s.disconnect();

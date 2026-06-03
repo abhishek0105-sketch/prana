@@ -16,7 +16,17 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res.data,
-  (err) => Promise.reject(err.response?.data || { error: 'Network error' })
+  (err) => {
+    // Token expired or invalid — clear it and send user to login
+    if (err.response?.status === 401) {
+      localStorage.removeItem('prana_token');
+      // Only redirect if we're not already on the welcome/auth page
+      if (!window.location.pathname.match(/^\/(auth)?$/)) {
+        window.location.href = '/';
+      }
+    }
+    return Promise.reject(err.response?.data || { error: 'Network error' });
+  }
 );
 
 export default api;

@@ -32,6 +32,7 @@ export default function Home() {
   const [loading, setLoading]               = useState(false);
   const [toast, setToast]                   = useState('');
   const [inviteCopied,     setInviteCopied]     = useState(false);
+  const [inviteLink,       setInviteLink]       = useState(''); // fallback when clipboard fails
   const [incomingHangout,  setIncomingHangout]  = useState(null);
 
   useEffect(() => { loadFriends(); loadRequests(); }, []);
@@ -57,12 +58,19 @@ export default function Home() {
       setIncomingHangout(invite);
     });
 
+    // Re-announce presence after network drop + reconnect
+    socket.on('reconnect', () => {
+      socket.emit('get-friend-presence');
+      socket.emit('set-presence', myPresence);
+    });
+
     return () => {
       socket.off('friend-presence-map');
       socket.off('presence-update');
       socket.off('friend-request');
       socket.off('friend-accepted');
       socket.off('hangout-invite');
+      socket.off('reconnect');
     };
   }, [socket]);
 
@@ -85,15 +93,19 @@ export default function Home() {
   const sendRequest = async (id) => {
     try {
       await api.post('/friends/request', { addressee_id: id });
-      showToast('Friend request sent! 🎉');
+      showToast('Buddy request sent! 🎉');
       setSearchResult(r => ({ ...r, friendship_status: 'pending' }));
     } catch (err) { showToast(err.error || 'Error'); }
   };
 
   const acceptRequest = async (fid) => {
-    await api.post('/friends/accept', { friendship_id: fid });
-    loadFriends(); loadRequests();
-    showToast('New buddy added! 🥂');
+    try {
+      await api.post('/friends/accept', { friendship_id: fid });
+      loadFriends(); loadRequests();
+      showToast('New buddy added! 🥂');
+    } catch (err) {
+      showToast(err.error || 'Could not accept request');
+    }
   };
 
   const declineRequest = async (fid) => {
@@ -108,13 +120,41 @@ export default function Home() {
   };
 
   const copyInviteLink = async () => {
+    // Step 1: generate the code (server-side)
+    let link;
     try {
       const { code } = await api.post('/invites');
-      const link = `${window.location.origin}/invite/${code}`;
+      link = `${window.location.origin}/invite/${code}`;
+    } catch {
+      showToast('Could not generate link — try again');
+      return;
+    }
+
+    // Step 2a: native share sheet (best on mobile — opens WhatsApp, iMessage, etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join me on PRANA ✨',
+          text:  "Hey! I'm on PRANA — join me so we can hang out remotely 🥂",
+          url:   link,
+        });
+        setInviteCopied(true);
+        setTimeout(() => setInviteCopied(false), 3000);
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return; // user dismissed the share sheet — that's fine
+      }
+    }
+
+    // Step 2b: clipboard API (desktop / browsers that support it)
+    try {
       await navigator.clipboard.writeText(link);
       setInviteCopied(true);
       setTimeout(() => setInviteCopied(false), 3000);
-    } catch { showToast('Could not generate link'); }
+    } catch {
+      // Step 2c: last resort — show the link so they can copy it manually
+      setInviteLink(link);
+    }
   };
 
   const startHangout = async (friendId) => {
@@ -371,8 +411,22 @@ export default function Home() {
                     className="w-full font-bold rounded-xl py-3 text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
                     style={{ background: 'linear-gradient(135deg,#8B5CF6,#F472B6)', color: '#fff', boxShadow: '0 0 24px rgba(139,92,246,0.4)' }}>
                     <Link size={15} />
-                    {inviteCopied ? '✅ Link copied! Send it now' : 'Copy Invite Link'}
+                    {inviteCopied ? '✅ Shared! They\'ll be in your crew soon' : navigator.share ? 'Share Invite Link' : 'Copy Invite Link'}
                   </button>
+
+                  {/* Fallback: show link manually if clipboard API is unavailable */}
+                  {inviteLink && (
+                    <div className="mt-3 rounded-xl p-3 flex items-center gap-2"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <p className="text-xs text-gray-400 flex-1 break-all font-mono">{inviteLink}</p>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(inviteLink).catch(() => {}); setInviteCopied(true); setInviteLink(''); setTimeout(() => setInviteCopied(false), 3000); }}
+                        className="text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
+                        style={{ background: 'rgba(139,92,246,0.25)', color: '#A78BFA' }}>
+                        Copy
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">

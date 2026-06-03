@@ -10,36 +10,44 @@ import Memories from './pages/Memories';
 import Invite from './pages/Invite';
 import InstallPrompt from './components/InstallPrompt';
 
+const Spinner = () => (
+  <div className="flex items-center justify-center h-screen bg-bg">
+    <div className="w-12 h-12 rounded-full border-4 border-violet border-t-transparent animate-spin" />
+  </div>
+);
+
+// Protects routes that require login — shows spinner while auth resolves
 function Protected({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-bg">
-      <div className="w-12 h-12 rounded-full border-4 border-violet border-t-transparent animate-spin" />
-    </div>
-  );
+  if (loading) return <Spinner />;
   return user ? children : <Navigate to="/" replace />;
 }
 
-export default function App() {
+// Public routes (/ and /auth) that redirect away once logged in
+function PublicOnly({ children }) {
   const { user, loading } = useAuth();
+  if (loading) return <Spinner />;
+  return user ? <Navigate to="/home" replace /> : children;
+}
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-bg">
-      <div className="w-12 h-12 rounded-full border-4 border-violet border-t-transparent animate-spin" />
-    </div>
-  );
-
+export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={user ? <Navigate to="/home" replace /> : <Welcome />} />
-        <Route path="/auth" element={user ? <Navigate to="/home" replace /> : <Auth />} />
-        <Route path="/home" element={<Protected><Home /></Protected>} />
-        <Route path="/hangout/:id" element={<Protected><Hangout /></Protected>} />
-        <Route path="/hangout/:id/places" element={<Protected><PlaceFinder /></Protected>} />
-        <Route path="/hangout/:id/send-round" element={<Protected><SendRound /></Protected>} />
-        <Route path="/memories" element={<Protected><Memories /></Protected>} />
+        {/* Public — redirect to /home if already logged in */}
+        <Route path="/"     element={<PublicOnly><Welcome /></PublicOnly>} />
+        <Route path="/auth" element={<PublicOnly><Auth /></PublicOnly>} />
+
+        {/* Protected — require login */}
+        <Route path="/home"                    element={<Protected><Home /></Protected>} />
+        <Route path="/hangout/:id"             element={<Protected><Hangout /></Protected>} />
+        <Route path="/hangout/:id/places"      element={<Protected><PlaceFinder /></Protected>} />
+        <Route path="/hangout/:id/send-round"  element={<Protected><SendRound /></Protected>} />
+        <Route path="/memories"               element={<Protected><Memories /></Protected>} />
+
+        {/* Fully public — invite links work without any account */}
         <Route path="/invite/:code" element={<Invite />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <InstallPrompt />
