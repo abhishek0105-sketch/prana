@@ -163,9 +163,10 @@ module.exports = (io) => {
     });
 
     // ── Watch Together ─────────────────────────────────────────────
-    socket.on('watch-start', ({ hangoutId, videoId }) => {
-      if (typeof videoId !== 'string' || videoId.length > 20) return;
-      socket.to(hangoutId).emit('watch-start', { videoId, by: socket.user.name });
+    socket.on('watch-start', ({ hangoutId, videoId, source }) => {
+      if (typeof videoId !== 'string' || videoId.length > 2000) return;
+      const src = ['youtube', 'vimeo', 'direct'].includes(source) ? source : 'direct';
+      socket.to(hangoutId).emit('watch-start', { videoId, source: src, by: socket.user.name });
     });
 
     socket.on('watch-control', ({ hangoutId, action, t }) => {

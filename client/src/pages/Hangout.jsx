@@ -211,8 +211,8 @@ export default function Hangout() {
         setToastActive(true);
       });
 
-      socket.on('watch-start', ({ videoId, by }) => {
-        setWatchVideoId(videoId);
+      socket.on('watch-start', ({ videoId, source, by }) => {
+        setWatchVideoId({ videoId, source: source || 'youtube' });
         showNotif(`🎬 ${by} started a video — tap 🎬 to join`);
       });
 
@@ -537,7 +537,7 @@ export default function Hangout() {
               <WatchTogether
                 hangoutId={id}
                 socket={socket}
-                remoteVideoId={watchVideoId}
+                remoteVideo={watchVideoId}
                 remoteControl={watchControl}
               />
             )}

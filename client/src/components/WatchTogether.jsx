@@ -1,125 +1,225 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Film } from 'lucide-react';
 
-// Extract YouTube video ID from any YouTube URL format
-function extractVideoId(url) {
+// ── Source detection ───────────────────────────────────────────
+function detectSource(url) {
+  const u = url.toLowerCase();
+  if (/youtu\.be|youtube\.com/.test(u))  return 'youtube';
+  if (/vimeo\.com/.test(u))              return 'vimeo';
+  return 'direct'; // treat everything else as a raw video URL
+}
+
+function extractYouTubeId(url) {
   const patterns = [
     /youtu\.be\/([^?&#\s]+)/,
     /[?&]v=([^&#\s]+)/,
     /youtube\.com\/embed\/([^?&#\s]+)/,
     /youtube\.com\/shorts\/([^?&#\s]+)/,
   ];
-  for (const p of patterns) {
-    const m = url.match(p);
-    if (m) return m[1];
-  }
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
   return null;
 }
 
-// Load the YouTube IFrame API once across all mounts
-let ytReady = false;
-let ytCallbacks = [];
+function extractVimeoId(url) {
+  const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  return m ? m[1] : null;
+}
+
+// ── SDK loaders (run once, cache callbacks) ────────────────────
+let ytReady = false, ytCallbacks = [];
 function loadYT(cb) {
   if (window.YT?.Player) { cb(); return; }
   ytCallbacks.push(cb);
   if (!ytReady) {
     ytReady = true;
-    window.onYouTubeIframeAPIReady = () => {
-      ytCallbacks.forEach(fn => fn());
-      ytCallbacks = [];
-    };
-    const tag = document.createElement('script');
-    tag.src   = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => { ytCallbacks.forEach(fn => fn()); ytCallbacks = []; };
+    const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
   }
 }
 
-export default function WatchTogether({ hangoutId, socket, remoteVideoId, remoteControl }) {
+let vimeoReady = false, vimeoCallbacks = [];
+function loadVimeo(cb) {
+  if (window.Vimeo?.Player) { cb(); return; }
+  vimeoCallbacks.push(cb);
+  if (!vimeoReady) {
+    vimeoReady = true;
+    const s = document.createElement('script'); s.src = 'https://player.vimeo.com/api/player.js';
+    s.onload = () => { vimeoCallbacks.forEach(fn => fn()); vimeoCallbacks = []; };
+    document.head.appendChild(s);
+  }
+}
+
+// ── Unified player factories ───────────────────────────────────
+// Each returns Promise<{ play, pause, seekTo, getCurrentTime, destroy }>
+
+function initYouTube(container, videoId, { onPlay, onPause }) {
+  return new Promise(resolve => {
+    loadYT(() => {
+      const yt = new window.YT.Player(container, {
+        videoId,
+        playerVars: { autoplay: 0, controls: 0, modestbranding: 1, rel: 0, playsinline: 1, fs: 0 },
+        events: {
+          onStateChange: (e) => {
+            const t = yt.getCurrentTime?.() || 0;
+            if (e.data === 1) onPlay(t);
+            else if (e.data === 2) onPause(t);
+          },
+        },
+      });
+      resolve({
+        play:           ()  => yt.playVideo(),
+        pause:          ()  => yt.pauseVideo(),
+        seekTo:         (t) => yt.seekTo(t, true),
+        getCurrentTime: ()  => yt.getCurrentTime?.() || 0,
+        destroy:        ()  => { try { yt.destroy(); } catch {} },
+      });
+    });
+  });
+}
+
+function initVimeo(container, videoId, { onPlay, onPause }) {
+  return new Promise(resolve => {
+    loadVimeo(async () => {
+      const vp = new window.Vimeo.Player(container, {
+        id:          videoId,
+        controls:    false,
+        playsinline: true,
+        responsive:  true,
+      });
+      vp.on('play',  async () => { const t = await vp.getCurrentTime(); onPlay(t);  });
+      vp.on('pause', async () => { const t = await vp.getCurrentTime(); onPause(t); });
+      resolve({
+        play:           ()  => vp.play(),
+        pause:          ()  => vp.pause(),
+        seekTo:         (t) => vp.setCurrentTime(t),
+        getCurrentTime: ()  => vp.getCurrentTime(), // returns Promise
+        destroy:        ()  => vp.destroy(),
+      });
+    });
+  });
+}
+
+function initDirect(container, url, { onPlay, onPause }) {
+  return new Promise(resolve => {
+    const v = document.createElement('video');
+    v.src           = url;
+    v.playsInline   = true;
+    v.controls      = false;
+    v.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block';
+    container.innerHTML = '';
+    container.appendChild(v);
+    v.addEventListener('play',  () => onPlay(v.currentTime));
+    v.addEventListener('pause', () => onPause(v.currentTime));
+    resolve({
+      play:           ()  => v.play().catch(() => {}),
+      pause:          ()  => v.pause(),
+      seekTo:         (t) => { v.currentTime = t; },
+      getCurrentTime: ()  => v.currentTime,
+      destroy:        ()  => { v.pause(); v.src = ''; container.innerHTML = ''; },
+    });
+  });
+}
+
+// ── Source metadata for the UI ─────────────────────────────────
+const SOURCES = {
+  youtube: { label: 'YouTube',    color: '#FF0000', hint: 'youtube.com/...  ·  youtu.be/...' },
+  vimeo:   { label: 'Vimeo',      color: '#1AB7EA', hint: 'vimeo.com/...' },
+  direct:  { label: 'Video file', color: '#A78BFA', hint: 'any .mp4 / .webm / Google Drive / Dropbox link' },
+};
+
+// ── Main component ─────────────────────────────────────────────
+export default function WatchTogether({ hangoutId, socket, remoteVideo, remoteControl }) {
   const [urlInput,  setUrlInput]  = useState('');
   const [videoId,   setVideoId]   = useState(null);
+  const [source,    setSource]    = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error,     setError]     = useState('');
 
   const playerRef   = useRef(null);
   const divRef      = useRef(null);
-  const suppressRef = useRef(false); // prevent echoing remote events back
+  const suppressRef = useRef(false);
 
-  // ── Initialise YouTube player whenever videoId changes ──────────
+  // ── Init / reinit player when videoId or source changes ───────
   useEffect(() => {
-    if (!videoId) return;
+    if (!videoId || !source) return;
+    let cancelled = false;
 
-    loadYT(() => {
-      // Destroy previous instance if any
+    const suppress = (fn) => { suppressRef.current = true; fn(); setTimeout(() => { suppressRef.current = false; }, 500); };
+
+    const onPlay  = (t) => { if (suppressRef.current) return; setIsPlaying(true);  socket?.emit('watch-control', { hangoutId, action: 'play',  t }); };
+    const onPause = (t) => { if (suppressRef.current) return; setIsPlaying(false); socket?.emit('watch-control', { hangoutId, action: 'pause', t }); };
+
+    (async () => {
       try { playerRef.current?.destroy(); } catch {}
       playerRef.current = null;
+      if (divRef.current) divRef.current.innerHTML = '';
 
-      // divRef.current gets replaced by the YouTube iframe
-      playerRef.current = new window.YT.Player(divRef.current, {
-        videoId,
-        playerVars: {
-          autoplay:       0,
-          controls:       0,  // we render our own controls
-          modestbranding: 1,
-          rel:            0,
-          playsinline:    1,
-          fs:             0,
-        },
-        events: {
-          onStateChange: (e) => {
-            if (suppressRef.current) return;
-            const t = playerRef.current?.getCurrentTime?.() || 0;
-            if (e.data === 1) { // playing
-              setIsPlaying(true);
-              socket?.emit('watch-control', { hangoutId, action: 'play', t });
-            } else if (e.data === 2) { // paused
-              setIsPlaying(false);
-              socket?.emit('watch-control', { hangoutId, action: 'pause', t });
-            }
-          },
-        },
-      });
-    });
+      let p;
+      if      (source === 'youtube') p = await initYouTube(divRef.current, videoId, { onPlay, onPause });
+      else if (source === 'vimeo')   p = await initVimeo  (divRef.current, videoId, { onPlay, onPause });
+      else                           p = await initDirect  (divRef.current, videoId, { onPlay, onPause });
+
+      if (!cancelled) playerRef.current = p;
+      else            p.destroy();
+    })();
 
     return () => {
+      cancelled = true;
       try { playerRef.current?.destroy(); } catch {}
       playerRef.current = null;
     };
-  }, [videoId]);
+  }, [videoId, source]);
 
-  // ── Apply remote video change ────────────────────────────────────
+  // ── Apply remote video (partner started something) ─────────────
   useEffect(() => {
-    if (remoteVideoId && remoteVideoId !== videoId) {
-      setVideoId(remoteVideoId);
+    if (!remoteVideo) return;
+    if (remoteVideo.videoId !== videoId || remoteVideo.source !== source) {
+      setVideoId(remoteVideo.videoId);
+      setSource(remoteVideo.source);
     }
-  }, [remoteVideoId]);
+  }, [remoteVideo]);
 
-  // ── Apply remote control events ──────────────────────────────────
+  // ── Apply remote control (play / pause / seek) ─────────────────
   useEffect(() => {
     if (!remoteControl || !playerRef.current) return;
     suppressRef.current = true;
     setTimeout(() => { suppressRef.current = false; }, 500);
-
     const p = playerRef.current;
     const { action, t } = remoteControl;
-    if (action === 'play')  { p.seekTo(t, true); p.playVideo();  setIsPlaying(true);  }
-    if (action === 'pause') { p.seekTo(t, true); p.pauseVideo(); setIsPlaying(false); }
-    if (action === 'seek')  { p.seekTo(t, true); }
+    if (action === 'play')  { p.seekTo(t); p.play();  setIsPlaying(true);  }
+    if (action === 'pause') { p.seekTo(t); p.pause(); setIsPlaying(false); }
+    if (action === 'seek')  { p.seekTo(t); }
   }, [remoteControl]);
 
-  // ── User loads a video ───────────────────────────────────────────
+  // ── User submits a URL ─────────────────────────────────────────
   const handleLoad = () => {
-    const vid = extractVideoId(urlInput.trim());
-    if (!vid) { setError('Paste a valid YouTube link'); return; }
+    const url = urlInput.trim();
+    if (!url) { setError('Paste a video link to get started'); return; }
+
+    const src = detectSource(url);
+    let vid = url;
+
+    if (src === 'youtube') {
+      vid = extractYouTubeId(url);
+      if (!vid) { setError("Couldn't read that YouTube link — try copying it from the browser address bar"); return; }
+    }
+    if (src === 'vimeo') {
+      vid = extractVimeoId(url);
+      if (!vid) { setError("Couldn't read that Vimeo link"); return; }
+    }
+
     setError('');
     setVideoId(vid);
-    socket?.emit('watch-start', { hangoutId, videoId: vid });
+    setSource(src);
+    socket?.emit('watch-start', { hangoutId, videoId: vid, source: src });
   };
 
-  // ── Playback controls ────────────────────────────────────────────
+  // ── Playback controls ──────────────────────────────────────────
   const togglePlay = () => {
     const p = playerRef.current;
     if (!p) return;
-    if (isPlaying) { p.pauseVideo(); } else { p.playVideo(); }
+    if (isPlaying) p.pause(); else p.play();
   };
 
   const restart = () => {
@@ -127,32 +227,33 @@ export default function WatchTogether({ hangoutId, socket, remoteVideoId, remote
     if (!p) return;
     suppressRef.current = true;
     setTimeout(() => { suppressRef.current = false; }, 500);
-    p.seekTo(0, true);
-    p.playVideo();
-    setIsPlaying(true);
+    p.seekTo(0); p.play(); setIsPlaying(true);
     socket?.emit('watch-control', { hangoutId, action: 'play', t: 0 });
   };
 
+  const changeVideo = () => { setVideoId(null); setSource(null); setUrlInput(''); setIsPlaying(false); };
+
+  // ── Render ─────────────────────────────────────────────────────
   return (
     <div className="px-5 pb-6 flex flex-col gap-4">
 
       {!videoId ? (
-        /* ── URL input ── */
         <>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.25)' }}>
-              <Film size={18} style={{ color: '#A78BFA' }} />
-            </div>
-            <p className="text-gray-400 text-sm leading-snug">
-              Paste a YouTube link — both of you watch in perfect sync 🎬
-            </p>
+          {/* Source tiles */}
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(SOURCES).map(([key, s]) => (
+              <div key={key} className="rounded-2xl p-3 text-center"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="font-bold text-xs mb-0.5" style={{ color: s.color }}>{s.label}</p>
+                <p className="text-gray-700" style={{ fontSize: '0.6rem', lineHeight: 1.4 }}>{s.hint}</p>
+              </div>
+            ))}
           </div>
 
           <div className="flex gap-3">
             <input
               className="input flex-1"
-              placeholder="youtube.com/watch?v=..."
+              placeholder="Paste any video link…"
               value={urlInput}
               onChange={e => { setUrlInput(e.target.value); setError(''); }}
               onKeyDown={e => e.key === 'Enter' && handleLoad()}
@@ -167,46 +268,46 @@ export default function WatchTogether({ hangoutId, socket, remoteVideoId, remote
           </div>
 
           {error && <p className="text-red-400 text-sm font-medium">{error}</p>}
-
-          <div className="rounded-2xl p-4 text-xs text-gray-600"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <p className="mb-1 font-semibold text-gray-500">Works with:</p>
-            <p>youtube.com/watch?v=... &nbsp;·&nbsp; youtu.be/... &nbsp;·&nbsp; YouTube Shorts</p>
-          </div>
         </>
       ) : (
-        /* ── Video + controls ── */
         <>
-          {/* 16:9 embed container */}
+          {/* Source badge */}
+          {source && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
+                style={{ background: `${SOURCES[source].color}20`, color: SOURCES[source].color, border: `1px solid ${SOURCES[source].color}40` }}>
+                {SOURCES[source].label}
+              </span>
+              <span className="text-gray-600 text-xs">synced in real time ✨</span>
+            </div>
+          )}
+
+          {/* 16:9 player container */}
           <div className="rounded-2xl overflow-hidden w-full"
-            style={{ aspectRatio: '16/9', background: '#000', position: 'relative' }}>
+            style={{ aspectRatio: '16/9', background: '#000' }}>
             <div ref={divRef} style={{ width: '100%', height: '100%' }} />
           </div>
 
-          {/* Playback controls */}
+          {/* Controls */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={togglePlay}
+            <button onClick={togglePlay}
               className="flex-1 font-bold py-3 rounded-2xl flex items-center justify-center gap-2 text-sm transition-all active:scale-[0.97]"
-              style={{ background: 'linear-gradient(135deg,#8B5CF6,#F472B6)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.35)' }}>
+              style={{ background: 'linear-gradient(135deg,#8B5CF6,#F472B6)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
               {isPlaying ? <><Pause size={16} /> Pause</> : <><Play size={16} /> Play</>}
             </button>
-            <button onClick={restart}
+            <button onClick={restart} title="Restart from beginning"
               className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all active:scale-90"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}
-              title="Restart from beginning">
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}>
               <RotateCcw size={16} />
             </button>
-            <button
-              onClick={() => { setVideoId(null); setUrlInput(''); setIsPlaying(false); }}
-              className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all active:scale-90 text-xs font-bold"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}
-              title="Change video">
+            <button onClick={changeVideo} title="Change video"
+              className="w-12 h-12 flex items-center justify-center rounded-2xl transition-all active:scale-90"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#9CA3AF' }}>
               <Film size={16} />
             </button>
           </div>
 
-          <p className="text-gray-700 text-xs text-center">Controls sync for both of you in real time ✨</p>
+          <p className="text-gray-700 text-xs text-center">Both of you see the same frame in real time</p>
         </>
       )}
     </div>
