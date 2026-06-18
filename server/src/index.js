@@ -24,7 +24,9 @@ const corsOptions = {
   origin: (origin, cb) => {
     // Allow requests with no origin (mobile apps, Postman, same-origin)
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS: origin ${origin} not allowed`));
+    const err = new Error(`CORS: origin ${origin} not allowed`);
+    err.status = 403;
+    cb(err);
   },
   credentials: true,
 };
