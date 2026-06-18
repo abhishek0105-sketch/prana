@@ -5,13 +5,12 @@ import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import api from '../lib/api';
 
 const PHOTOS = {
-  // Friends laughing hard at a rooftop party — real faces, warm light, zero tech
   signup: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=900&q=90&auto=format&fit=crop',
-  // Nightlife crowd energy — people celebrating, back in the world
   login:  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=900&q=85&auto=format&fit=crop&crop=center',
+  forgot: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=900&q=85&auto=format&fit=crop&crop=center',
 };
 
-const PHOTO_POS = { signup: 'center 30%', login: 'center 38%' };
+const PHOTO_POS = { signup: 'center 30%', login: 'center 38%', forgot: 'center 38%' };
 
 export default function Auth() {
   const [params]  = useSearchParams();
@@ -19,6 +18,7 @@ export default function Auth() {
   const [form, setForm]       = useState({ name: '', email: '', password: '' });
   const [showPw, setShowPw]   = useState(false);
   const [error, setError]     = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, register }   = useAuth();
   const nav = useNavigate();
@@ -28,8 +28,14 @@ export default function Auth() {
 
   const submit = async (e) => {
     e.preventDefault();
-    setError(''); setLoading(true);
+    setError(''); setSuccess(''); setLoading(true);
     try {
+      if (mode === 'forgot') {
+        await api.post('/auth/forgot-password', { email: form.email });
+        setSuccess('Check your inbox — we sent a reset link.');
+        setLoading(false);
+        return;
+      }
       if (mode === 'signup') {
         if (!form.name.trim()) { setError('What should we call you?'); setLoading(false); return; }
         await register(form.name.trim(), form.email, form.password);
@@ -43,6 +49,7 @@ export default function Auth() {
     } finally { setLoading(false); }
   };
 
+  const isForgot = mode === 'forgot';
   const isSignup = mode === 'signup';
 
   /* ─── Split: photo zone = top 50%, form zone = bottom 50% ─── */
@@ -124,13 +131,13 @@ export default function Auth() {
             lineHeight: 1.05, color: '#fff',
             textShadow: '0 2px 24px rgba(0,0,0,0.6)',
           }}>
-            {isSignup ? 'Join ' : 'Welcome '}
+            {isForgot ? 'Forgot ' : isSignup ? 'Join ' : 'Welcome '}
             <span style={{
               background: 'linear-gradient(90deg,#00B4FF,#00E5A0)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
               filter: 'drop-shadow(0 0 16px rgba(0,180,255,0.55))',
             }}>
-              {isSignup ? 'CLINK' : 'back'}
+              {isForgot ? 'password?' : isSignup ? 'CLINK' : 'back'}
             </span>
           </div>
           <p style={{
@@ -139,7 +146,7 @@ export default function Auth() {
             fontFamily: '"Inter",sans-serif',
             textShadow: '0 1px 12px rgba(0,0,0,0.5)',
           }}>
-            {isSignup ? 'Never lose your people.' : 'Your crew is waiting.'}
+            {isForgot ? "We'll email you a reset link." : isSignup ? 'Never lose your people.' : 'Your crew is waiting.'}
           </p>
         </div>
       </div>
@@ -172,26 +179,28 @@ export default function Auth() {
               value={form.email} onChange={set('email')} autoComplete="email" />
           </div>
 
-          <div>
-            <label style={labelStyle}>Password</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                style={{ ...inputStyle, paddingRight: 52 }}
-                type={showPw ? 'text' : 'password'}
-                placeholder="Min 8 characters"
-                value={form.password} onChange={set('password')}
-                autoComplete={isSignup ? 'new-password' : 'current-password'}
-              />
-              <button type="button" onClick={() => setShowPw(s => !s)} style={{
-                position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none',
-                color: 'rgba(255,255,255,0.35)', cursor: 'pointer',
-                display: 'flex', alignItems: 'center',
-              }}>
-                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+          {!isForgot && (
+            <div>
+              <label style={labelStyle}>Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  style={{ ...inputStyle, paddingRight: 52 }}
+                  type={showPw ? 'text' : 'password'}
+                  placeholder="Min 8 characters"
+                  value={form.password} onChange={set('password')}
+                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                />
+                <button type="button" onClick={() => setShowPw(s => !s)} style={{
+                  position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none',
+                  color: 'rgba(255,255,255,0.35)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center',
+                }}>
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {error && (
             <div style={{
@@ -204,19 +213,29 @@ export default function Auth() {
             </div>
           )}
 
-          <button type="submit" disabled={loading} style={{
+          {success && (
+            <div style={{
+              padding: '12px 16px', borderRadius: 14,
+              background: 'rgba(0,229,160,0.1)',
+              border: '1px solid rgba(0,229,160,0.3)',
+              color: '#6EE7B7', fontSize: '0.85rem', fontWeight: 500,
+            }}>
+              {success}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading || !!success} style={{
             width: '100%', padding: '16px 0', marginTop: 2,
-            background: loading ? 'rgba(0,180,255,0.4)' : 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+            background: (loading || success) ? 'rgba(0,180,255,0.4)' : 'linear-gradient(135deg,#00B4FF,#00E5A0)',
             border: 'none', borderRadius: 18,
             color: '#020C18', fontFamily: '"Outfit","Inter",sans-serif',
             fontWeight: 900, fontSize: '1.05rem',
-            cursor: loading ? 'not-allowed' : 'pointer',
+            cursor: (loading || success) ? 'not-allowed' : 'pointer',
             boxShadow: '0 0 32px rgba(0,180,255,0.35),0 4px 20px rgba(0,229,160,0.2)',
             position: 'relative', overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>
-            {/* shimmer */}
-            {!loading && (
+            {!loading && !success && (
               <div style={{
                 position: 'absolute', top: 0, left: 0, bottom: 0, width: '55%',
                 background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent)',
@@ -231,21 +250,47 @@ export default function Auth() {
                   animation: 'spin 0.7s linear infinite',
                 }} />
               : <span style={{ position: 'relative', zIndex: 1 }}>
-                  {isSignup ? 'Create My Account' : "Let's Go"}
+                  {isForgot ? 'Send reset link' : isSignup ? 'Create My Account' : "Let's Go"}
                 </span>
             }
           </button>
         </form>
 
-        <button onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError(''); }}
-          style={{
-            marginTop: 18, background: 'none', border: 'none',
-            color: 'rgba(255,255,255,0.38)', fontSize: '0.85rem',
-            fontWeight: 500, cursor: 'pointer', textAlign: 'center',
-            fontFamily: '"Inter",sans-serif',
-          }}>
-          {isSignup ? 'Already have an account? Log in' : "New here? Sign up — it's free"}
-        </button>
+        {!isForgot && (
+          <button onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError(''); setSuccess(''); }}
+            style={{
+              marginTop: 18, background: 'none', border: 'none',
+              color: 'rgba(255,255,255,0.38)', fontSize: '0.85rem',
+              fontWeight: 500, cursor: 'pointer', textAlign: 'center',
+              fontFamily: '"Inter",sans-serif',
+            }}>
+            {isSignup ? 'Already have an account? Log in' : "New here? Sign up — it's free"}
+          </button>
+        )}
+
+        {mode === 'login' && (
+          <button onClick={() => { setMode('forgot'); setError(''); setSuccess(''); }}
+            style={{
+              marginTop: 4, background: 'none', border: 'none',
+              color: 'rgba(255,255,255,0.25)', fontSize: '0.8rem',
+              fontWeight: 500, cursor: 'pointer', textAlign: 'center',
+              fontFamily: '"Inter",sans-serif',
+            }}>
+            Forgot password?
+          </button>
+        )}
+
+        {isForgot && (
+          <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
+            style={{
+              marginTop: 18, background: 'none', border: 'none',
+              color: 'rgba(255,255,255,0.38)', fontSize: '0.85rem',
+              fontWeight: 500, cursor: 'pointer', textAlign: 'center',
+              fontFamily: '"Inter",sans-serif',
+            }}>
+            Back to log in
+          </button>
+        )}
       </div>
 
       <style>{`

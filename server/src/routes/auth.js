@@ -6,6 +6,13 @@ const rateLimit = require('express-rate-limit');
 const db       = require('../db');
 const auth     = require('../middleware/auth');
 
+// Resend email client — only initialised when RESEND_API_KEY is set
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  const { Resend } = require('resend');
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
+
 const COLORS = ['#F59E0B', '#8B5CF6', '#10B981', '#3B82F6', '#EF4444', '#EC4899'];
 
 // ── Rate limiters ──────────────────────────────────────────────
@@ -116,6 +123,65 @@ router.get('/me', auth, (req, res) => {
 router.patch('/city', auth, (req, res) => {
   const city = (req.body.city || '').toString().trim().slice(0, 100);
   db.update('users', u => u.id === req.user.id, { city });
+  res.json({ ok: true });
+});
+
+// ── POST /forgot-password ──────────────────────────────────────
+router.post('/forgot-password', authLimiter, async (req, res) => {
+  const email = (req.body.email || '').toLowerCase().trim();
+  if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });
+
+  const user = db.findOne('users', u => u.email === email);
+  // Always respond with success — don't reveal whether email exists
+  if (!user) return res.json({ ok: true });
+
+  // Expire any existing tokens for this user
+  db.remove('reset_tokens', t => t.user_id === user.id);
+
+  const token      = uuid();
+  const expires_at = Date.now() + 60 * 60 * 1000; // 1 hour
+  db.insert('reset_tokens', { token, user_id: user.id, expires_at });
+
+  const resetUrl = `${process.env.FRONTEND_URL || 'https://clink-social.vercel.app'}/reset-password?token=${token}`;
+  const from     = process.env.FROM_EMAIL || 'CLINK <onboarding@resend.dev>';
+
+  if (resend) {
+    await resend.emails.send({
+      from,
+      to: user.email,
+      subject: 'Reset your CLINK password',
+      html: `
+        <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#020C18;color:#fff;border-radius:16px">
+          <h1 style="font-size:1.8rem;font-weight:900;margin:0 0 8px">Hey ${user.name} 👋</h1>
+          <p style="color:rgba(255,255,255,0.7);margin:0 0 28px">Someone requested a password reset for your CLINK account. If that was you, click below.</p>
+          <a href="${resetUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#00B4FF,#00E5A0);color:#020C18;font-weight:900;font-size:1rem;border-radius:14px;text-decoration:none">Reset my password</a>
+          <p style="color:rgba(255,255,255,0.38);font-size:0.8rem;margin-top:28px">Link expires in 1 hour. If you didn't request this, ignore this email — your account is safe.</p>
+        </div>
+      `,
+    });
+  } else {
+    // No email provider configured — log for dev
+    console.log(`[dev] Password reset link for ${email}: ${resetUrl}`);
+  }
+
+  res.json({ ok: true });
+});
+
+// ── POST /reset-password ───────────────────────────────────────
+router.post('/reset-password', authLimiter, async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Token and new password are required' });
+  if (password.length < 8)  return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  if (password.length > 128) return res.status(400).json({ error: 'Password is too long' });
+
+  const record = db.findOne('reset_tokens', t => t.token === token);
+  if (!record || record.expires_at < Date.now())
+    return res.status(400).json({ error: 'Reset link is invalid or has expired. Please request a new one.' });
+
+  const hashed = await bcrypt.hash(password, 12);
+  db.update('users', u => u.id === record.user_id, { password: hashed });
+  db.remove('reset_tokens', t => t.token === token);
+
   res.json({ ok: true });
 });
 

@@ -5,7 +5,7 @@ const path = require('path');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const COLLECTIONS = ['users', 'friendships', 'hangouts', 'messages', 'transactions', 'invites', 'push_subscriptions'];
+const COLLECTIONS = ['users', 'friendships', 'hangouts', 'messages', 'transactions', 'invites', 'push_subscriptions', 'reset_tokens'];
 COLLECTIONS.forEach(col => {
   const file = path.join(DATA_DIR, `${col}.json`);
   if (!fs.existsSync(file)) fs.writeFileSync(file, '[]', 'utf8');
