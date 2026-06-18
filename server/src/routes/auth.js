@@ -16,10 +16,10 @@ if (process.env.RESEND_API_KEY) {
 const COLORS = ['#F59E0B', '#8B5CF6', '#10B981', '#3B82F6', '#EF4444', '#EC4899'];
 
 // ── Rate limiters ──────────────────────────────────────────────
-// 40 attempts per 15 minutes per IP — stops brute-force
+// 600 per 15 min — temporarily elevated for QA load test; will be restored to 40
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 40,
+  max: 600,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts — please wait 15 minutes and try again.' },
