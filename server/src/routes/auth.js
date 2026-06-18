@@ -53,27 +53,21 @@ router.post('/register', authLimiter, async (req, res) => {
   const { name, email, password } = req.body;
   const cleanEmail = email.toLowerCase().trim();
 
-  if (db.findOne('users', u => u.email === cleanEmail))
+  if (await db.findOne('users', u => u.email === cleanEmail))
     return res.status(409).json({ error: 'An account with that email already exists' });
 
   const id    = uuid();
-  // Deterministic color from UUID so no two users created in rapid succession get the same color.
   const colorIdx = id.replace(/-/g, '').split('').reduce((s, c) => s + c.charCodeAt(0), 0) % COLORS.length;
   const color = COLORS[colorIdx];
 
-  // Async hash — doesn't block the event loop (cost 12 ≈ 400ms blocking if sync)
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  const user  = {
-    id,
-    name:         name.trim(),
-    email:        cleanEmail,
-    password:     hashedPassword,
-    avatar_color: color,
-    city:         '',
-    created_at:   Date.now(),
+  const user = {
+    id, name: name.trim(), email: cleanEmail,
+    password: hashedPassword, avatar_color: color,
+    city: '', created_at: Date.now(),
   };
-  db.insert('users', user);
+  await db.insert('users', user);
 
   const token = jwt.sign(
     { id, name: user.name, email: user.email, avatar_color: color },
@@ -87,15 +81,14 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 // ── POST /login ────────────────────────────────────────────────
-router.post('/login', authLimiter, (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const validationError = validateLogin(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
   const { email, password } = req.body;
   const cleanEmail = email.toLowerCase().trim();
 
-  const user = db.findOne('users', u => u.email === cleanEmail);
-  // Always run compareSync even on missing user to prevent timing attacks
+  const user = await db.findOne('users', u => u.email === cleanEmail);
   const passwordMatch = user && bcrypt.compareSync(password, user.password);
   if (!user || !passwordMatch)
     return res.status(401).json({ error: 'Invalid email or password' });
@@ -112,17 +105,17 @@ router.post('/login', authLimiter, (req, res) => {
 });
 
 // ── GET /me ────────────────────────────────────────────────────
-router.get('/me', auth, (req, res) => {
-  const user = db.findOne('users', u => u.id === req.user.id);
+router.get('/me', auth, async (req, res) => {
+  const user = await db.findOne('users', u => u.id === req.user.id);
   if (!user) return res.status(404).json({ error: 'User not found' });
   const { password: _, ...safe } = user;
   res.json(safe);
 });
 
 // ── PATCH /city ────────────────────────────────────────────────
-router.patch('/city', auth, (req, res) => {
+router.patch('/city', auth, async (req, res) => {
   const city = (req.body.city || '').toString().trim().slice(0, 100);
-  db.update('users', u => u.id === req.user.id, { city });
+  await db.update('users', u => u.id === req.user.id, { city });
   res.json({ ok: true });
 });
 
@@ -131,16 +124,14 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   const email = (req.body.email || '').toLowerCase().trim();
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });
 
-  const user = db.findOne('users', u => u.email === email);
-  // Always respond with success — don't reveal whether email exists
+  const user = await db.findOne('users', u => u.email === email);
   if (!user) return res.json({ ok: true });
 
-  // Expire any existing tokens for this user
-  db.remove('reset_tokens', t => t.user_id === user.id);
+  await db.remove('reset_tokens', t => t.user_id === user.id);
 
   const token      = uuid();
-  const expires_at = Date.now() + 60 * 60 * 1000; // 1 hour
-  db.insert('reset_tokens', { token, user_id: user.id, expires_at });
+  const expires_at = Date.now() + 60 * 60 * 1000;
+  await db.insert('reset_tokens', { id: token, token, user_id: user.id, expires_at });
 
   const resetUrl = `${process.env.FRONTEND_URL || 'https://clink-social.vercel.app'}/reset-password?token=${token}`;
   const from     = process.env.FROM_EMAIL || 'CLINK <onboarding@resend.dev>';
@@ -160,7 +151,6 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
       `,
     });
   } else {
-    // No email provider configured — log for dev
     console.log(`[dev] Password reset link for ${email}: ${resetUrl}`);
   }
 
@@ -174,13 +164,13 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   if (password.length < 8)  return res.status(400).json({ error: 'Password must be at least 8 characters' });
   if (password.length > 128) return res.status(400).json({ error: 'Password is too long' });
 
-  const record = db.findOne('reset_tokens', t => t.token === token);
+  const record = await db.findOne('reset_tokens', t => t.token === token);
   if (!record || record.expires_at < Date.now())
     return res.status(400).json({ error: 'Reset link is invalid or has expired. Please request a new one.' });
 
   const hashed = await bcrypt.hash(password, 12);
-  db.update('users', u => u.id === record.user_id, { password: hashed });
-  db.remove('reset_tokens', t => t.token === token);
+  await db.update('users', u => u.id === record.user_id, { password: hashed });
+  await db.remove('reset_tokens', t => t.token === token);
 
   res.json({ ok: true });
 });

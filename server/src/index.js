@@ -84,6 +84,13 @@ app.use((err, _req, res, _next) => {
 require('./socket')(io);
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`\n✅  CLINK Server — port ${PORT}  (${process.env.NODE_ENV || 'development'})\n`);
-});
+const db   = require('./db');
+
+(async () => {
+  if (typeof db.init === 'function') {
+    await db.init();
+  }
+  server.listen(PORT, () => {
+    console.log(`\n✅  CLINK Server — port ${PORT}  (${process.env.NODE_ENV || 'development'})\n`);
+  });
+})();
