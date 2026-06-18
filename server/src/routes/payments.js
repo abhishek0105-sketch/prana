@@ -25,7 +25,7 @@ router.post('/checkout', auth, async (req, res) => {
     return res.status(400).json({ error: 'receiver_id required' });
 
   const parsed = parseFloat(amount);
-  if (!parsed || parsed < 1 || parsed > 500)
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 500)
     return res.status(400).json({ error: 'Amount must be between 1 and 500' });
 
   if (receiver_id === req.user.id)
@@ -45,7 +45,7 @@ router.post('/checkout', auth, async (req, res) => {
           unit_amount: Math.round(parsed * 100), // Stripe wants cents
           product_data: {
             name:        `A round for ${receiver.name} 🥂`,
-            description: message || 'Sent via PRANA',
+            description: message || 'Sent via CLINK',
           },
         },
         quantity: 1,
@@ -82,8 +82,12 @@ router.post('/webhook', async (req, res) => {
   try {
     if (secret && stripe) {
       event = stripe.webhooks.constructEvent(req.body, sig, secret);
+    } else if (process.env.NODE_ENV === 'production') {
+      // In production, never accept unsigned webhooks — this is a misconfiguration
+      console.error('[stripe] webhook received in production without STRIPE_WEBHOOK_SECRET set');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
     } else {
-      // No secret configured — accept without verification (dev only)
+      // Dev only — accept without verification so local testing works
       event = JSON.parse(req.body.toString());
     }
   } catch (err) {

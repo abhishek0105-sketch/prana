@@ -63,7 +63,7 @@ router.post('/search', auth, (req, res) => {
 
   const user = db.findOne('users', u => u.email === cleanEmail && u.id !== req.user.id);
   if (!user)
-    return res.status(404).json({ error: 'No PRANA account found. Ask your friend to sign up first.' });
+    return res.status(404).json({ error: 'No CLINK account found. Ask your friend to sign up first.' });
 
   const existing = db.findOne('friendships', f =>
     (f.requester_id === req.user.id && f.addressee_id === user.id) ||
@@ -108,7 +108,7 @@ router.post('/request', auth, (req, res) => {
   if (!userSockets[addressee_id]) {
     sendPush(addressee_id, {
       title: `${req.user.name} wants to be buddies 👋`,
-      body:  'Open PRANA to accept',
+      body:  'Open CLINK to accept',
       icon:  '/icon-192.png',
       tag:   `req-${id}`,
       url:   '/home',
@@ -145,10 +145,13 @@ router.post('/decline', auth, (req, res) => {
   const { friendship_id } = req.body;
   if (!friendship_id) return res.status(400).json({ error: 'friendship_id required' });
 
-  // Only the addressee can decline
-  db.remove('friendships',
-    f => f.id === friendship_id && f.addressee_id === req.user.id
+  // Only the addressee can decline, and only pending requests (not accepted friendships)
+  const f = db.findOne('friendships',
+    f => f.id === friendship_id && f.addressee_id === req.user.id && f.status === 'pending'
   );
+  if (!f) return res.status(404).json({ error: 'Pending request not found' });
+
+  db.remove('friendships', f => f.id === friendship_id);
   res.json({ ok: true });
 });
 

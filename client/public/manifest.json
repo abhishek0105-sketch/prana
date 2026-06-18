@@ -1,12 +1,12 @@
 {
-  "name": "PRANA — Be Together. From Anywhere.",
-  "short_name": "PRANA",
-  "description": "Hang out with your people no matter where life takes you.",
+  "name": "CLINK — Your crew, always one clink away",
+  "short_name": "CLINK",
+  "description": "Stay close to your crew no matter where life takes you.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#000000",
-  "theme_color": "#8B5CF6",
+  "background_color": "#020C18",
+  "theme_color": "#00B4FF",
   "icons": [
     {
       "src": "/icon.svg",

@@ -1,20 +1,20 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Eye, EyeOff, Plane, Heart, Wine, Smile, Globe, Star } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import api from '../lib/api';
 
-const AUTH_FLOATERS = [
-  { Icon: Plane,  top: 12, left:  6, size: 20, op: 0.10, dur: 7,  delay: 0   },
-  { Icon: Globe,  top: 20, left: 85, size: 18, op: 0.09, dur: 9,  delay: 1.5 },
-  { Icon: Smile,  top: 50, left:  4, size: 19, op: 0.10, dur: 8,  delay: 0.8 },
-  { Icon: Heart,  top: 65, left: 88, size: 17, op: 0.09, dur: 10, delay: 2.0 },
-  { Icon: Wine,   top: 80, left: 10, size: 18, op: 0.09, dur: 7,  delay: 3.0 },
-  { Icon: Star,   top: 38, left: 90, size: 16, op: 0.09, dur: 9,  delay: 1.2 },
-];
+const PHOTOS = {
+  // Friends laughing hard at a rooftop party — real faces, warm light, zero tech
+  signup: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=900&q=90&auto=format&fit=crop',
+  // Nightlife crowd energy — people celebrating, back in the world
+  login:  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=900&q=85&auto=format&fit=crop&crop=center',
+};
+
+const PHOTO_POS = { signup: 'center 30%', login: 'center 38%' };
 
 export default function Auth() {
-  const [params] = useSearchParams();
+  const [params]  = useSearchParams();
   const [mode, setMode]       = useState(params.get('mode') || 'login');
   const [form, setForm]       = useState({ name: '', email: '', password: '' });
   const [showPw, setShowPw]   = useState(false);
@@ -24,7 +24,6 @@ export default function Auth() {
   const nav = useNavigate();
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
-
   const inviteCode = params.get('invite');
 
   const submit = async (e) => {
@@ -37,97 +36,240 @@ export default function Auth() {
       } else {
         await login(form.email, form.password);
       }
-      // Auto-connect with the person who shared the invite link
-      if (inviteCode) {
-        await api.post(`/invites/${inviteCode}/redeem`).catch(() => {});
-      }
+      if (inviteCode) await api.post(`/invites/${inviteCode}/redeem`).catch(() => {});
       nav('/home');
     } catch (err) {
       setError(err.error || 'Something went wrong. Try again.');
     } finally { setLoading(false); }
   };
 
+  const isSignup = mode === 'signup';
+
+  /* ─── Split: photo zone = top 50%, form zone = bottom 50% ─── */
+  const SPLIT = 50;
+
   return (
-    <div className="min-h-screen bg-bg flex flex-col px-6 py-8 relative overflow-hidden">
-      {/* Orbs */}
-      <div className="orb w-80 h-80 -top-24 -right-24" style={{ background: '#8B5CF6' }} />
-      <div className="orb w-72 h-72 bottom-0 -left-24" style={{ background: '#F472B6' }} />
+    <div style={{
+      width: '100%', height: '100dvh', position: 'relative',
+      display: 'flex', flexDirection: 'column',
+      overflow: 'hidden', background: '#020C18',
+      maxWidth: 480, margin: '0 auto',
+    }}>
 
-      {/* Floating outline sketch symbols */}
-      {AUTH_FLOATERS.map(({ Icon, top, left, size, op, dur, delay }, i) => (
-        <div key={i} className="absolute pointer-events-none select-none"
-          style={{
-            top: `${top}%`, left: `${left}%`,
-            opacity: op,
-            animation: `floatDrift ${dur}s ease-in-out ${delay}s infinite`,
-          }}>
-          <Icon size={size} stroke="white" strokeWidth={1.2} fill="none" />
-        </div>
-      ))}
+      {/* ── Background photo — only shows through top zone ── */}
+      <img
+        key={mode}
+        src={PHOTOS[mode]}
+        alt=""
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0,
+          height: `${SPLIT + 8}%`,          /* slightly taller so gradient covers the seam */
+          width: '100%',
+          objectFit: 'cover',
+          objectPosition: PHOTO_POS[mode],
+          /* warm up the signup photo with a gentle filter */
+          filter: isSignup
+            ? 'brightness(1.08) saturate(1.35) contrast(1.02)'
+            : 'brightness(0.9) saturate(1.1)',
+          transition: 'filter 0.5s ease',
+        }}
+      />
 
-      <button onClick={() => nav('/')} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors w-fit relative z-10">
-        <ArrowLeft size={18} /> Back
-      </button>
+      {/* Gradient: crystal clear at top → pitch dark at SPLIT point */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: `${SPLIT + 8}%`,
+        background: `linear-gradient(180deg,
+          rgba(2,12,24,0.18) 0%,
+          rgba(2,12,24,0.0)  22%,
+          rgba(2,12,24,0.6)  ${SPLIT - 4}%,
+          rgba(2,12,24,1.0)  ${SPLIT + 6}%
+        )`,
+      }} />
 
-      <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full gap-8 fade-in relative z-10">
+      {/* Neon divider line at the split */}
+      <div style={{
+        position: 'absolute', top: `${SPLIT}%`, left: 0, right: 0, height: 1, zIndex: 3,
+        background: 'linear-gradient(90deg,transparent,#00B4FF 35%,#00E5A0 65%,transparent)',
+        opacity: 0.5,
+      }} />
 
+      {/* ── PHOTO ZONE — logo + headline (top SPLIT%) ─────────── */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: `${SPLIT}%`, zIndex: 2,
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: 'max(18px,env(safe-area-inset-top,18px)) 22px 24px',
+      }}>
+        {/* Back button */}
+        <button onClick={() => nav('/')} style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: 'rgba(2,12,24,0.48)', backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.14)',
+          borderRadius: 20, padding: '7px 14px 7px 10px',
+          color: 'rgba(255,255,255,0.8)', fontSize: '0.82rem',
+          fontWeight: 600, cursor: 'pointer', width: 'fit-content',
+        }}>
+          <ArrowLeft size={15} /> Back
+        </button>
+
+        {/* Title + tagline — sit at bottom of photo zone */}
         <div>
-          <div className="text-5xl mb-4">{mode === 'login' ? '👋' : '✨'}</div>
-          <h2 className="text-4xl font-display font-black grad-text">
-            {mode === 'login' ? 'Welcome back' : 'Join PRANA'}
-          </h2>
-          <p className="text-gray-400 mt-2 text-lg">
-            {mode === 'login' ? 'Your crew is waiting.' : 'Never lose your people.'}
+          <div style={{
+            fontFamily: '"Outfit","Inter",sans-serif',
+            fontWeight: 900,
+            fontSize: 'clamp(2rem,8vw,2.9rem)',
+            lineHeight: 1.05, color: '#fff',
+            textShadow: '0 2px 24px rgba(0,0,0,0.6)',
+          }}>
+            {isSignup ? 'Join ' : 'Welcome '}
+            <span style={{
+              background: 'linear-gradient(90deg,#00B4FF,#00E5A0)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 0 16px rgba(0,180,255,0.55))',
+            }}>
+              {isSignup ? 'CLINK' : 'back'}
+            </span>
+          </div>
+          <p style={{
+            color: 'rgba(255,255,255,0.72)',
+            fontSize: '1rem', fontWeight: 500, marginTop: 7,
+            fontFamily: '"Inter",sans-serif',
+            textShadow: '0 1px 12px rgba(0,0,0,0.5)',
+          }}>
+            {isSignup ? 'Never lose your people.' : 'Your crew is waiting.'}
           </p>
         </div>
+      </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-4">
-          {mode === 'signup' && (
+      {/* ── FORM ZONE — starts cleanly at SPLIT% ──────────────── */}
+      <div style={{
+        position: 'absolute', top: `${SPLIT}%`, bottom: 0, left: 0, right: 0,
+        zIndex: 2,
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'space-evenly',
+        padding: '18px 22px',
+        paddingBottom: 'max(22px,env(safe-area-inset-bottom,22px))',
+        overflowY: 'auto',
+        background: '#020C18',
+      }}>
+
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+
+          {isSignup && (
             <div>
-              <label className="text-gray-400 font-semibold block mb-2 text-sm uppercase tracking-wide">Your name</label>
-              <input className="input" placeholder="What do your buddies call you?" value={form.name}
-                onChange={set('name')} autoComplete="name" />
+              <label style={labelStyle}>Your name</label>
+              <input style={inputStyle} placeholder="What do your buddies call you?"
+                value={form.name} onChange={set('name')} autoComplete="name" />
             </div>
           )}
+
           <div>
-            <label className="text-gray-400 font-semibold block mb-2 text-sm uppercase tracking-wide">Email</label>
-            <input className="input" type="email" placeholder="you@example.com" value={form.email}
-              onChange={set('email')} autoComplete="email" />
+            <label style={labelStyle}>Email</label>
+            <input style={inputStyle} type="email" placeholder="you@example.com"
+              value={form.email} onChange={set('email')} autoComplete="email" />
           </div>
+
           <div>
-            <label className="text-gray-400 font-semibold block mb-2 text-sm uppercase tracking-wide">Password</label>
-            <div className="relative">
-              <input className="input pr-14" type={showPw ? 'text' : 'password'}
-                placeholder="Min 6 characters" value={form.password} onChange={set('password')}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
-              <button type="button" onClick={() => setShowPw(s => !s)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
+            <label style={labelStyle}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                style={{ ...inputStyle, paddingRight: 52 }}
+                type={showPw ? 'text' : 'password'}
+                placeholder="Min 8 characters"
+                value={form.password} onChange={set('password')}
+                autoComplete={isSignup ? 'new-password' : 'current-password'}
+              />
+              <button type="button" onClick={() => setShowPw(s => !s)} style={{
+                position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none',
+                color: 'rgba(255,255,255,0.35)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center',
+              }}>
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
           </div>
 
           {error && (
-            <div className="rounded-2xl px-5 py-4 text-sm font-medium"
-              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#FCA5A5' }}>
+            <div style={{
+              padding: '12px 16px', borderRadius: 14,
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid rgba(239,68,68,0.3)',
+              color: '#FCA5A5', fontSize: '0.85rem', fontWeight: 500,
+            }}>
               {error}
             </div>
           )}
 
-          <button type="submit" className="btn-primary w-full mt-2 text-lg font-display" disabled={loading}>
+          <button type="submit" disabled={loading} style={{
+            width: '100%', padding: '16px 0', marginTop: 2,
+            background: loading ? 'rgba(0,180,255,0.4)' : 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+            border: 'none', borderRadius: 18,
+            color: '#020C18', fontFamily: '"Outfit","Inter",sans-serif',
+            fontWeight: 900, fontSize: '1.05rem',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            boxShadow: '0 0 32px rgba(0,180,255,0.35),0 4px 20px rgba(0,229,160,0.2)',
+            position: 'relative', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}>
+            {/* shimmer */}
+            {!loading && (
+              <div style={{
+                position: 'absolute', top: 0, left: 0, bottom: 0, width: '55%',
+                background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent)',
+                animation: 'btnShimmer 2.8s ease-in-out infinite',
+              }} />
+            )}
             {loading
-              ? <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-              : mode === 'login' ? 'Let\'s Go 🚀' : 'Create My Account ✨'}
+              ? <div style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  border: '2.5px solid rgba(2,12,24,0.3)',
+                  borderTop: '2.5px solid #020C18',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
+              : <span style={{ position: 'relative', zIndex: 1 }}>
+                  {isSignup ? 'Create My Account' : "Let's Go"}
+                </span>
+            }
           </button>
         </form>
 
         <button onClick={() => { setMode(m => m === 'login' ? 'signup' : 'login'); setError(''); }}
-          className="text-gray-500 hover:text-white transition-colors text-sm font-medium text-center">
-          {mode === 'login'
-            ? "New here? Sign up — it's free"
-            : 'Already have an account? Log in'}
+          style={{
+            marginTop: 18, background: 'none', border: 'none',
+            color: 'rgba(255,255,255,0.38)', fontSize: '0.85rem',
+            fontWeight: 500, cursor: 'pointer', textAlign: 'center',
+            fontFamily: '"Inter",sans-serif',
+          }}>
+          {isSignup ? 'Already have an account? Log in' : "New here? Sign up — it's free"}
         </button>
       </div>
+
+      <style>{`
+        @keyframes spin       { to { transform: rotate(360deg) } }
+        @keyframes btnShimmer { 0% { transform:translateX(-120%) } 60%,100% { transform:translateX(280%) } }
+      `}</style>
     </div>
   );
 }
+
+const labelStyle = {
+  display: 'block',
+  color: 'rgba(255,255,255,0.38)',
+  fontSize: '0.68rem', fontWeight: 700,
+  letterSpacing: '0.14em', textTransform: 'uppercase',
+  marginBottom: 7, fontFamily: '"Inter",sans-serif',
+};
+
+const inputStyle = {
+  width: '100%', padding: '14px 18px',
+  background: 'rgba(255,255,255,0.07)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: 15, color: '#fff',
+  fontSize: '0.95rem', fontFamily: '"Inter",sans-serif',
+  outline: 'none', boxSizing: 'border-box',
+  backdropFilter: 'blur(8px)',
+};

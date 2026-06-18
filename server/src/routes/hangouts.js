@@ -76,12 +76,12 @@ router.get('/:id', auth, (req, res) => {
 });
 
 // ── POST /hangouts/:id/end ─────────────────────────────────────
+// Only the initiator or the partner can end the hangout.
+// Guests (invited later) can leave, but cannot end it for everyone.
 router.post('/:id/end', auth, (req, res) => {
   const hangout = db.findOne('hangouts', h =>
     h.id === req.params.id &&
-    (h.initiator_id === req.user.id ||
-     h.partner_id   === req.user.id ||
-     (h.guest_ids || []).includes(req.user.id))
+    (h.initiator_id === req.user.id || h.partner_id === req.user.id)
   );
   if (!hangout) return res.status(404).json({ error: 'Hangout not found' });
 

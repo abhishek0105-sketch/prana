@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Wine, ExternalLink, Loader } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,18 +41,15 @@ export default function SendRound() {
     api.get(`/hangouts/${id}`).then(d => setHangout(d.hangout)).catch(() => nav('/home'));
   }, [id]);
 
-  // Emit socket notification once hangout + socket are ready after a successful payment
+  // Clean up Stripe redirect params from the URL on first render
+  // (prevents re-triggering on refresh). The server webhook already
+  // emitted 'round-sent' to the hangout room, so no client-side
+  // duplicate emission needed here.
   useEffect(() => {
-    if (!paid || !hangout || !socket || !returnAmt) return;
-    socket.emit('round-sent', {
-      hangoutId: id,
-      amount:    returnAmt,
-      message,
-      receiver_name: returnTo,
-    });
-    // Clean up the URL params so a refresh doesn't re-trigger
-    window.history.replaceState({}, '', window.location.pathname);
-  }, [paid, hangout, socket]);
+    if (returnPaid) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const friend = hangout
     ? (hangout.initiator_id === user?.id
@@ -76,19 +73,11 @@ export default function SendRound() {
       window.location.href = data.url;
     } catch (err) {
       if (err.error === 'Payments not configured yet') {
-        // Stripe not set up — fall back to virtual gesture
-        try {
-          await api.post('/payments/send', {
-            receiver_id: friend.id,
-            amount:      finalAmount,
-            message,
-            hangout_id:  id,
-          });
-          socket?.emit('round-sent', { hangoutId: id, amount: finalAmount, message, receiver_name: friend.name });
-          setPaid(true);
-        } catch (e) {
-          setError(e.error || 'Could not send round');
-        }
+        // Stripe not set up — virtual gesture: emit socket event and show success
+        socket?.emit('round-sent', { hangoutId: id, amount: finalAmount, message, receiver_name: friend.name });
+        setPaid(true);
+        setLoading(false);
+        return;
       } else {
         setError(err.error || 'Could not create payment session');
       }
@@ -100,7 +89,7 @@ export default function SendRound() {
   if (paid) return (
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-6 fade-in relative overflow-hidden">
       <div className="orb w-72 h-72 -top-20 -left-20" style={{ background: '#F59E0B', opacity: 0.12 }} />
-      <div className="orb w-72 h-72 -bottom-20 -right-20" style={{ background: '#F472B6', opacity: 0.12 }} />
+      <div className="orb w-72 h-72 -bottom-20 -right-20" style={{ background: '#FF6EC7', opacity: 0.12 }} />
 
       <div className="relative z-10 text-center flex flex-col items-center gap-5 max-w-sm">
         <div className="text-8xl animate-bounce">🥂</div>
@@ -131,7 +120,7 @@ export default function SendRound() {
   return (
     <div className="min-h-screen bg-bg flex flex-col max-w-lg mx-auto px-6 py-8 fade-in relative overflow-x-hidden">
 
-      <div className="orb w-72 h-72 -top-20 -right-20" style={{ background: '#8B5CF6', opacity: 0.15 }} />
+      <div className="orb w-72 h-72 -top-20 -right-20" style={{ background: '#00B4FF', opacity: 0.15 }} />
 
       <button onClick={() => nav(-1)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-6 relative z-10">
         <ArrowLeft size={20} /> Back
@@ -171,9 +160,9 @@ export default function SendRound() {
             <button key={a} onClick={() => { setAmount(a); setCustomAmount(''); }}
               className="py-4 rounded-2xl font-bold text-base transition-all active:scale-95"
               style={amount === a && !customAmount ? {
-                background: 'linear-gradient(135deg,#8B5CF6,#F472B6)',
-                color: '#fff',
-                boxShadow: '0 0 16px rgba(139,92,246,0.4)',
+                background: 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+                color: '#020C18',
+                boxShadow: '0 0 16px rgba(0,180,255,0.4)',
               } : {
                 background: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.08)',
@@ -195,9 +184,9 @@ export default function SendRound() {
             <button key={m} onClick={() => setMessage(m)}
               className="px-4 py-2 rounded-xl text-sm font-semibold transition-all active:scale-95"
               style={message === m ? {
-                background: 'rgba(139,92,246,0.2)',
-                border: '1px solid rgba(139,92,246,0.4)',
-                color: '#A78BFA',
+                background: 'rgba(0,180,255,0.2)',
+                border: '1px solid rgba(0,180,255,0.4)',
+                color: '#00E5A0',
               } : {
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.07)',

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Flame, Clock, Star, Heart } from 'lucide-react';
 import api from '../lib/api';
@@ -38,7 +38,7 @@ export default function Memories() {
 
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
-          style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899)' }}>
+          style={{ background: 'linear-gradient(135deg, #00B4FF, #00E5A0)' }}>
           ✨
         </div>
         <div>

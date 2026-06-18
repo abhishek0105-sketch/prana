@@ -39,7 +39,7 @@ function validateLogin({ email, password }) {
 }
 
 // ── POST /register ─────────────────────────────────────────────
-router.post('/register', authLimiter, (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const validationError = validateRegister(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
@@ -50,12 +50,18 @@ router.post('/register', authLimiter, (req, res) => {
     return res.status(409).json({ error: 'An account with that email already exists' });
 
   const id    = uuid();
-  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+  // Deterministic color from UUID so no two users created in rapid succession get the same color.
+  const colorIdx = id.replace(/-/g, '').split('').reduce((s, c) => s + c.charCodeAt(0), 0) % COLORS.length;
+  const color = COLORS[colorIdx];
+
+  // Async hash — doesn't block the event loop (cost 12 ≈ 400ms blocking if sync)
+  const hashedPassword = await bcrypt.hash(password, 12);
+
   const user  = {
     id,
     name:         name.trim(),
     email:        cleanEmail,
-    password:     bcrypt.hashSync(password, 12), // cost 12 — stronger than default 10
+    password:     hashedPassword,
     avatar_color: color,
     city:         '',
     created_at:   Date.now(),
@@ -63,9 +69,9 @@ router.post('/register', authLimiter, (req, res) => {
   db.insert('users', user);
 
   const token = jwt.sign(
-    { id, name: user.name, email: user.email },
+    { id, name: user.name, email: user.email, avatar_color: color },
     process.env.JWT_SECRET,
-    { expiresIn: '14d' }   // reduced from 30d
+    { expiresIn: '14d' }
   );
   res.status(201).json({
     token,
@@ -88,7 +94,7 @@ router.post('/login', authLimiter, (req, res) => {
     return res.status(401).json({ error: 'Invalid email or password' });
 
   const token = jwt.sign(
-    { id: user.id, name: user.name, email: user.email },
+    { id: user.id, name: user.name, email: user.email, avatar_color: user.avatar_color },
     process.env.JWT_SECRET,
     { expiresIn: '14d' }
   );

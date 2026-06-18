@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import useTVMode from './hooks/useTVMode';
 import Welcome from './pages/Welcome';
 import Auth from './pages/Auth';
 import Home from './pages/Home';
@@ -8,6 +9,8 @@ import PlaceFinder from './pages/PlaceFinder';
 import SendRound from './pages/SendRound';
 import Memories from './pages/Memories';
 import Invite from './pages/Invite';
+import TV from './pages/TV';
+import TVControl from './pages/TVControl';
 import InstallPrompt from './components/InstallPrompt';
 
 const Spinner = () => (
@@ -31,6 +34,7 @@ function PublicOnly({ children }) {
 }
 
 export default function App() {
+  useTVMode(); // auto-detects TV browser UA; adds .tv-mode to <html> + D-pad nav
   return (
     <>
       <Routes>
@@ -47,6 +51,10 @@ export default function App() {
 
         {/* Fully public — invite links work without any account */}
         <Route path="/invite/:code" element={<Invite />} />
+
+        {/* Smart TV — no login required */}
+        <Route path="/tv"         element={<TV />} />
+        <Route path="/tv-control" element={<TVControl />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

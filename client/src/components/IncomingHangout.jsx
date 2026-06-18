@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import { Phone, PhoneOff } from 'lucide-react';
 
 const initials = (name) =>
@@ -29,7 +29,7 @@ export default function IncomingHangout({ invite, onJoin, onDecline }) {
           <div key={i} className="absolute rounded-full border"
             style={{
               width: size, height: size,
-              borderColor: `rgba(139,92,246,${0.15 - i * 0.04})`,
+              borderColor: `rgba(0,180,255,${0.15 - i * 0.04})`,
               animation: `pulse ${1.4 + i * 0.3}s ease-in-out infinite`,
               animationDelay: `${i * 0.2}s`,
             }} />
@@ -42,8 +42,8 @@ export default function IncomingHangout({ invite, onJoin, onDecline }) {
         <div className="relative">
           <div className="w-28 h-28 rounded-full flex items-center justify-center text-4xl font-black text-white"
             style={{
-              background: from.color || 'linear-gradient(135deg,#8B5CF6,#F472B6)',
-              boxShadow: '0 0 60px rgba(139,92,246,0.5), 0 0 120px rgba(139,92,246,0.2)',
+              background: from.color || 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+              boxShadow: '0 0 60px rgba(0,180,255,0.5), 0 0 120px rgba(0,180,255,0.2)',
             }}>
             {initials(from.name)}
           </div>

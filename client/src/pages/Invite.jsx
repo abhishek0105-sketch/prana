@@ -12,9 +12,9 @@ const FLOATERS = [
 ];
 
 const AVATAR_COLORS = [
-  'linear-gradient(135deg,#8B5CF6,#F472B6)',
-  'linear-gradient(135deg,#F472B6,#FBBF24)',
-  'linear-gradient(135deg,#2DD4BF,#8B5CF6)',
+  'linear-gradient(135deg,#00B4FF,#00E5A0)',
+  'linear-gradient(135deg,#FBBF24,#00E5A0)',
+  'linear-gradient(135deg,#00CFD5,#0070F3)',
 ];
 
 const initials = (name) =>
@@ -57,8 +57,8 @@ export default function Invite() {
     <div className="min-h-screen bg-bg flex flex-col items-center justify-center px-6 relative overflow-hidden">
 
       {/* Orbs */}
-      <div className="orb w-96 h-96 -top-32 -right-20" style={{ background: '#8B5CF6' }} />
-      <div className="orb w-72 h-72 -bottom-16 -left-20" style={{ background: '#F472B6' }} />
+      <div className="orb w-96 h-96 -top-32 -right-20" style={{ background: '#00B4FF' }} />
+      <div className="orb w-72 h-72 -bottom-16 -left-20" style={{ background: '#00E5A0' }} />
 
       {/* Ambient floaters */}
       {FLOATERS.map(({ Icon, top, left, size, op, dur, delay }, i) => (
@@ -71,18 +71,18 @@ export default function Invite() {
 
       <div className="relative z-10 w-full max-w-sm fade-in text-center flex flex-col items-center gap-8">
 
-        {/* PRANA logo */}
+        {/* CLINK logo */}
         <div>
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3"
             style={{
-              background: 'linear-gradient(135deg, #8B5CF6, #F472B6)',
-              boxShadow: '0 0 50px rgba(139,92,246,0.5)',
-            }}>✨</div>
-          <p className="text-2xl font-display font-black grad-text tracking-tight">PRANA</p>
+              background: 'linear-gradient(135deg, #00B4FF, #00CFD5, #00E5A0)',
+              boxShadow: '0 0 50px rgba(0,180,255,0.5)',
+            }}>🥂</div>
+          <p className="text-2xl font-display font-black grad-text tracking-tight">CLINK</p>
         </div>
 
         {loading && (
-          <div className="w-10 h-10 rounded-full border-4 border-violet border-t-transparent animate-spin" />
+          <div className="w-10 h-10 rounded-full border-4 border-blue border-t-transparent animate-spin" />
         )}
 
         {!loading && error && (
@@ -92,7 +92,7 @@ export default function Invite() {
             <p className="text-red-400 font-bold text-lg">Link no longer valid</p>
             <p className="text-gray-500 text-sm mt-2">{error}</p>
             <button className="btn-secondary w-full mt-5" onClick={() => nav('/')}>
-              Go to PRANA
+              Go to CLINK
             </button>
           </div>
         )}
@@ -114,12 +114,12 @@ export default function Invite() {
 
               <div>
                 <p className="text-white font-display font-black text-2xl">{inviter.name}</p>
-                <p className="text-gray-500 text-sm mt-1">invited you to PRANA</p>
+                <p className="text-gray-500 text-sm mt-1">invited you to CLINK</p>
               </div>
 
               <div className="w-full rounded-2xl px-4 py-3 text-center"
-                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                <p className="text-violet-300 text-sm leading-relaxed">
+                style={{ background: 'rgba(0,180,255,0.08)', border: '1px solid rgba(0,180,255,0.2)' }}>
+                <p className="text-cyan-300 text-sm leading-relaxed">
                   Stay close to your crew, no matter<br />how far life takes you ✨
                 </p>
               </div>
@@ -132,7 +132,7 @@ export default function Invite() {
                   ? <div className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                   : user
                     ? `Add ${inviter.name.split(' ')[0]} to my crew 🥂`
-                    : 'Join PRANA — Free Forever ✨'}
+                    : 'Join CLINK — Free Forever 🥂'}
               </button>
               {!user && (
                 <button className="btn-secondary w-full" onClick={() => nav(`/auth?mode=login&invite=${code}`)}>

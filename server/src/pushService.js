@@ -6,7 +6,7 @@ const db = require('./db');
 let ready = false;
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    'mailto:hello@prana.app',
+    process.env.VAPID_CONTACT || 'mailto:hello@clink.app',
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );

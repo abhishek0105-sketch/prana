@@ -98,7 +98,14 @@ module.exports = (io) => {
     });
 
     socket.on('hangout-ended', ({ hangoutId }) => {
+      // Only initiator or partner may end the hangout for everyone
+      const hangout = db.findOne('hangouts', h => h.id === hangoutId);
+      if (!hangout) return;
+      if (hangout.initiator_id !== uid && hangout.partner_id !== uid) return;
+
       socket.to(hangoutId).emit('hangout-ended', { by: socket.user.name });
+      // Clean up room roster so memory doesn't accumulate
+      delete hangoutRooms[hangoutId];
       broadcastPresence('free');
     });
 
@@ -109,6 +116,9 @@ module.exports = (io) => {
       // Persist the invite in DB so the invitee passes the GET /hangouts/:id auth check
       const hangout = db.findOne('hangouts', h => h.id === hangoutId);
       if (!hangout) return;
+
+      // Only someone currently in the room can invite others
+      if (!hangoutRooms[hangoutId]?.[uid]) return;
       const guestIds = hangout.guest_ids || [];
       if (!guestIds.includes(targetUserId)) {
         db.update('hangouts', h => h.id === hangoutId, { guest_ids: [...guestIds, targetUserId] });
@@ -143,7 +153,10 @@ module.exports = (io) => {
 
     // ── Chat ───────────────────────────────────────────────────────
     socket.on('chat-message', ({ hangoutId, content }) => {
-      const msg = { id: uuid(), hangout_id: hangoutId, sender_id: uid, sender_name: socket.user.name, content, type: 'text', created_at: Date.now() };
+      // Reject missing, non-string, or oversized messages
+      if (!content || typeof content !== 'string' || content.trim().length === 0) return;
+      if (content.length > 4000) return;
+      const msg = { id: uuid(), hangout_id: hangoutId, sender_id: uid, sender_name: socket.user.name, content: content.trim(), type: 'text', created_at: Date.now() };
       db.insert('messages', msg);
       io.to(hangoutId).emit('chat-message', msg);
     });
@@ -165,13 +178,23 @@ module.exports = (io) => {
     // ── Watch Together ─────────────────────────────────────────────
     socket.on('watch-start', ({ hangoutId, videoId, source }) => {
       if (typeof videoId !== 'string' || videoId.length > 2000) return;
-      const src = ['youtube', 'vimeo', 'direct'].includes(source) ? source : 'direct';
-      socket.to(hangoutId).emit('watch-start', { videoId, source: src, by: socket.user.name });
+      const src = ['youtube', 'vimeo', 'direct', 'local', 'external', 'screen'].includes(source) ? source : 'direct';
+      // Include sharer's userId so the receiver can look up their WebRTC stream
+      socket.to(hangoutId).emit('watch-start', { videoId, source: src, by: socket.user.name, userId: uid });
+    });
+
+    socket.on('watch-stop', ({ hangoutId }) => {
+      socket.to(hangoutId).emit('watch-stop', { by: socket.user.name });
     });
 
     socket.on('watch-control', ({ hangoutId, action, t }) => {
       if (!['play', 'pause', 'seek'].includes(action)) return;
       socket.to(hangoutId).emit('watch-control', { action, t: Number(t) || 0, by: socket.user.name });
+    });
+
+    // Streaming sync — relay ready state so both clients can start the countdown
+    socket.on('watch-ready', ({ hangoutId, ready }) => {
+      socket.to(hangoutId).emit('watch-ready', { ready: !!ready, userId: uid });
     });
 
     socket.on('video-toggle', ({ hangoutId, enabled }) =>

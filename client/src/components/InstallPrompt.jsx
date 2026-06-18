@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
 
 export default function InstallPrompt() {
@@ -42,20 +42,20 @@ export default function InstallPrompt() {
       <div className="rounded-3xl p-4 flex items-center gap-4"
         style={{
           background: 'rgba(10,10,10,0.97)',
-          border: '1px solid rgba(139,92,246,0.4)',
+          border: '1px solid rgba(0,180,255,0.4)',
           backdropFilter: 'blur(20px)',
-          boxShadow: '0 0 40px rgba(139,92,246,0.25)',
+          boxShadow: '0 0 40px rgba(0,180,255,0.25)',
         }}>
 
         {/* Icon */}
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #8B5CF6, #F472B6)' }}>
+          style={{ background: 'linear-gradient(135deg, #00B4FF, #00E5A0)' }}>
           <span className="text-2xl">✨</span>
         </div>
 
         {/* Text */}
         <div className="flex-1 min-w-0">
-          <p className="text-white font-bold text-sm leading-tight">Install PRANA</p>
+          <p className="text-white font-bold text-sm leading-tight">Install CLINK</p>
           {isIos
             ? <p className="text-gray-500 text-xs mt-0.5">Tap <strong>Share →</strong> then <strong>"Add to Home Screen"</strong></p>
             : <p className="text-gray-500 text-xs mt-0.5">Add to your home screen — works like a real app</p>
@@ -67,7 +67,7 @@ export default function InstallPrompt() {
           {!isIos && (
             <button onClick={install}
               className="flex items-center gap-1.5 font-bold rounded-xl px-3 py-2 text-xs"
-              style={{ background: 'linear-gradient(135deg, #8B5CF6, #F472B6)', color: '#fff' }}>
+              style={{ background: 'linear-gradient(135deg, #00B4FF, #00E5A0)', color: '#fff' }}>
               <Download size={13} /> Install
             </button>
           )}

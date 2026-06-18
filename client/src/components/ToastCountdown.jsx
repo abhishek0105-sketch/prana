@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 
 export default function ToastCountdown({ by, onDone }) {
   const [count, setCount] = useState(3);
@@ -41,7 +41,7 @@ export default function ToastCountdown({ by, onDone }) {
             {[...Array(20)].map((_, i) => (
               <div key={i} className="absolute w-3 h-3 rounded-full"
                 style={{
-                  background: ['#F59E0B','#8B5CF6','#10B981','#EF4444','#EC4899'][i % 5],
+                  background: ['#F59E0B','#00B4FF','#10B981','#EF4444','#EC4899'][i % 5],
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
                   animation: `float ${1 + Math.random() * 2}s ease-in-out infinite`,

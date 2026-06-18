@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   PhoneOff, MessageCircle, MapPin, Wine, Mic, MicOff,
@@ -36,8 +36,10 @@ export default function Hangout() {
   const [toastActive,  setToastActive]  = useState(false);
   const [toastBy,      setToastBy]      = useState('');
   const [notification, setNotification] = useState('');
-  const [watchVideoId, setWatchVideoId] = useState(null);
-  const [watchControl, setWatchControl] = useState(null);
+  const [watchVideoId,      setWatchVideoId]      = useState(null);
+  const [watchControl,      setWatchControl]      = useState(null);
+  const [isScreenSharing,   setIsScreenSharing]   = useState(false);
+  const [screenSharerUserId, setScreenSharerUserId] = useState(null);
 
   // ── Group / peers state ───────────────────────────────────────
   // peers: { [userId]: { userId, name, color, socketId, stream, muted, camOff, connected } }
@@ -47,9 +49,10 @@ export default function Hangout() {
   const [inviting,     setInviting]   = useState({});   // userId → true while invite sending
 
   // ── Refs ──────────────────────────────────────────────────────
-  const localStreamRef = useRef(null);
-  const pcsRef         = useRef({});   // userId → RTCPeerConnection
-  const socketToPeer   = useRef({});   // socketId → userId  (for answer/ICE lookup)
+  const localStreamRef  = useRef(null);
+  const screenStreamRef = useRef(null);
+  const pcsRef          = useRef({});  // userId → RTCPeerConnection
+  const socketToPeer    = useRef({});  // socketId → userId  (for answer/ICE lookup)
 
   // ── Helpers ───────────────────────────────────────────────────
   const showNotif = (msg) => {
@@ -111,10 +114,14 @@ export default function Hangout() {
 
   // ── Fetch hangout + friends ───────────────────────────────────
   useEffect(() => {
+    let mounted = true;
     api.get(`/hangouts/${id}`)
-      .then(d => { setHangout(d.hangout); setMessages(d.messages); })
-      .catch(() => nav('/home'));
-    api.get('/friends').then(setAllFriends).catch(() => {});
+      .then(d => { if (mounted) { setHangout(d.hangout); setMessages(d.messages); } })
+      .catch(() => { if (mounted) nav('/home'); });
+    api.get('/friends')
+      .then(d => { if (mounted) setAllFriends(d); })
+      .catch(() => {});
+    return () => { mounted = false; };
   }, [id]);
 
   // ── Main: camera first, then socket ──────────────────────────
@@ -211,9 +218,18 @@ export default function Hangout() {
         setToastActive(true);
       });
 
-      socket.on('watch-start', ({ videoId, source, by }) => {
+      socket.on('watch-start', ({ videoId, source, by, userId: sharerId }) => {
         setWatchVideoId({ videoId, source: source || 'youtube' });
-        showNotif(`🎬 ${by} started a video — tap 🎬 to join`);
+        if (source === 'screen') {
+          setScreenSharerUserId(sharerId || null);
+          setActiveTab('watch'); // auto-open so the watcher sees it immediately
+        }
+        showNotif(`🎬 ${by} ${source === 'screen' ? 'is sharing their screen' : 'started a video'} — tap 🎬 to join`);
+      });
+
+      socket.on('watch-stop', () => {
+        setWatchVideoId(null);
+        setScreenSharerUserId(null);
       });
 
       socket.on('watch-control', ({ action, t }) => {
@@ -234,6 +250,8 @@ export default function Hangout() {
 
     const cleanup = () => {
       localStreamRef.current?.getTracks().forEach(t => t.stop());
+      screenStreamRef.current?.getTracks().forEach(t => t.stop());
+      screenStreamRef.current = null;
       Object.values(pcsRef.current).forEach(pc => pc.close());
       pcsRef.current = {};
     };
@@ -254,32 +272,39 @@ export default function Hangout() {
       socket.off('round-sent');
       socket.off('place-selected');
       socket.off('watch-start');
+      socket.off('watch-stop');
       socket.off('watch-control');
       socket.off('video-toggle');
       socket.off('audio-toggle');
       cleanup();
     };
-  }, [socket, hangout]);
+  }, [socket, hangout?.id]);
 
   // ── Controls ──────────────────────────────────────────────────
   const toggleMute = () => {
+    const newMuted = !muted;
     const track = localStreamRef.current?.getAudioTracks()[0];
-    if (track) track.enabled = muted;
-    setMuted(m => { socket?.emit('audio-toggle', { hangoutId: id, enabled: m }); return !m; });
+    if (track) track.enabled = !newMuted;
+    setMuted(newMuted);
+    socket?.emit('audio-toggle', { hangoutId: id, enabled: !newMuted });
   };
 
   const toggleCam = () => {
+    const newCamOff = !camOff;
     const track = localStreamRef.current?.getVideoTracks()[0];
-    if (track) track.enabled = camOff;
-    setCamOff(c => { socket?.emit('video-toggle', { hangoutId: id, enabled: c }); return !c; });
+    if (track) track.enabled = !newCamOff;
+    setCamOff(newCamOff);
+    socket?.emit('video-toggle', { hangoutId: id, enabled: !newCamOff });
   };
 
   const endHangout = async () => {
+    // Stop media and notify peers first (fast, local)
     socket?.emit('hangout-ended', { hangoutId: id });
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     Object.values(pcsRef.current).forEach(pc => pc.close());
+    // Persist to DB before navigating (awaited so status is never left as 'active')
+    try { await api.post(`/hangouts/${id}/end`); } catch { /* best-effort */ }
     nav('/home');
-    api.post(`/hangouts/${id}/end`).catch(() => {});
   };
 
   const sendMessage = (content) => socket?.emit('chat-message', { hangoutId: id, content });
@@ -289,6 +314,45 @@ export default function Hangout() {
     setToastBy('');
     setToastActive(true);
   };
+
+  // ── Screen sharing ─────────────────────────────────────────────
+  const stopScreenShare = useCallback(() => {
+    screenStreamRef.current?.getTracks().forEach(t => t.stop());
+    screenStreamRef.current = null;
+    setIsScreenSharing(false);
+    // Restore camera track in all peer connections
+    const camTrack = localStreamRef.current?.getVideoTracks()[0];
+    if (camTrack) {
+      Object.values(pcsRef.current).forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) sender.replaceTrack(camTrack).catch(() => {});
+      });
+    }
+    socket?.emit('watch-stop', { hangoutId: id });
+  }, [socket, id]);
+
+  const startScreenShare = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 30 }, displaySurface: 'monitor' },
+        audio: false,
+      });
+      screenStreamRef.current = stream;
+      setIsScreenSharing(true);
+      // Replace video track in every peer connection
+      const screenTrack = stream.getVideoTracks()[0];
+      Object.values(pcsRef.current).forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) sender.replaceTrack(screenTrack).catch(() => {});
+      });
+      // Tell partner
+      socket?.emit('watch-start', { hangoutId: id, videoId: user?.id || 'screen', source: 'screen' });
+      // Auto-stop when user clicks "Stop sharing" in browser UI
+      screenTrack.addEventListener('ended', stopScreenShare, { once: true });
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') console.warn('[screen share]', err);
+    }
+  }, [socket, id, user?.id, stopScreenShare]);
 
   const sendInvite = (friendId) => {
     setInviting(prev => ({ ...prev, [friendId]: true }));
@@ -328,7 +392,7 @@ export default function Hangout() {
           <div className="absolute top-20 left-4 right-4 px-4 py-3 rounded-2xl text-sm font-semibold fade-in z-20 text-white"
             style={{
               background: 'rgba(15,15,30,0.92)',
-              border: '1px solid rgba(139,92,246,0.3)',
+              border: '1px solid rgba(0,180,255,0.3)',
               backdropFilter: 'blur(20px)',
             }}>
             {notification}
@@ -412,8 +476,8 @@ export default function Hangout() {
           <button onClick={() => setActiveTab(t => t === 'invite' ? null : 'invite')}
             className="w-11 h-11 flex items-center justify-center rounded-2xl transition-all active:scale-90"
             style={activeTab === 'invite' ? {
-              background: 'linear-gradient(135deg,#8B5CF6,#F472B6)',
-              color: '#fff', boxShadow: '0 0 15px rgba(139,92,246,0.4)',
+              background: 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+              color: '#fff', boxShadow: '0 0 15px rgba(0,180,255,0.4)',
             } : {
               background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
             }}>
@@ -423,8 +487,8 @@ export default function Hangout() {
           <button onClick={() => setActiveTab(t => t === 'chat' ? null : 'chat')}
             className="w-11 h-11 flex items-center justify-center rounded-2xl transition-all active:scale-90"
             style={activeTab === 'chat' ? {
-              background: 'linear-gradient(135deg,#8B5CF6,#F472B6)',
-              color: '#fff', boxShadow: '0 0 15px rgba(139,92,246,0.4)',
+              background: 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+              color: '#fff', boxShadow: '0 0 15px rgba(0,180,255,0.4)',
             } : {
               background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
             }}>
@@ -435,14 +499,21 @@ export default function Hangout() {
             className="w-11 h-11 flex items-center justify-center rounded-2xl transition-all active:scale-90"
             title="Watch Together"
             style={activeTab === 'watch' ? {
-              background: 'linear-gradient(135deg,#8B5CF6,#F472B6)',
-              color: '#fff', boxShadow: '0 0 15px rgba(139,92,246,0.4)',
+              background: 'linear-gradient(135deg,#00B4FF,#00E5A0)',
+              color: '#fff', boxShadow: '0 0 15px rgba(0,180,255,0.4)',
             } : watchVideoId ? {
-              background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.35)', color: '#A78BFA',
+              background: 'rgba(0,180,255,0.15)', border: '1px solid rgba(0,180,255,0.35)', color: '#00E5A0',
             } : {
               background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff',
             }}>
             <Film size={18} />
+          </button>
+          {/* Places — navigates to dedicated page */}
+          <button onClick={() => nav(`/hangout/${id}/places`)}
+            className="w-11 h-11 flex items-center justify-center rounded-2xl transition-all active:scale-90"
+            title="Find a Place"
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }}>
+            <MapPin size={18} />
           </button>
           {/* Toast */}
           <button onClick={startToast}
@@ -493,7 +564,7 @@ export default function Hangout() {
                         <div key={f.id} className="flex items-center gap-3 rounded-2xl p-3"
                           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
                           <div className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-white flex-shrink-0 text-base"
-                            style={{ background: f.avatar_color || 'linear-gradient(135deg,#8B5CF6,#F472B6)' }}>
+                            style={{ background: f.avatar_color || 'linear-gradient(135deg,#00B4FF,#00E5A0)' }}>
                             {f.name?.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -507,7 +578,7 @@ export default function Hangout() {
                             style={sent ? {
                               background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#10B981',
                             } : {
-                              background: 'linear-gradient(135deg,#8B5CF6,#F472B6)', color: '#fff',
+                              background: 'linear-gradient(135deg,#00B4FF,#00E5A0)', color: '#020C18',
                             }}>
                             {sent ? <><Check size={13} /> Invited</> : 'Invite'}
                           </button>
@@ -539,6 +610,11 @@ export default function Hangout() {
                 socket={socket}
                 remoteVideo={watchVideoId}
                 remoteControl={watchControl}
+                isScreenSharing={isScreenSharing}
+                localScreenStream={screenStreamRef.current}
+                remoteScreenStream={screenSharerUserId ? peers[screenSharerUserId]?.stream ?? null : null}
+                onStartScreenShare={startScreenShare}
+                onStopScreenShare={stopScreenShare}
               />
             )}
           </div>

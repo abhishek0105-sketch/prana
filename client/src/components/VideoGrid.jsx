@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import { MicOff, VideoOff, AlertCircle, Wifi } from 'lucide-react';
 
 const initials = (name) =>
@@ -21,10 +21,10 @@ function Tile({ stream, name, color, isLocal, muted, camOff, camError, connected
       style={{
         background: '#0D0D1A',
         border: isLocal
-          ? '2px solid rgba(139,92,246,0.5)'
+          ? '2px solid rgba(0,180,255,0.5)'
           : '1px solid rgba(255,255,255,0.06)',
         boxShadow: isLocal
-          ? '0 0 20px rgba(139,92,246,0.2)'
+          ? '0 0 20px rgba(0,180,255,0.2)'
           : 'none',
         minHeight: 80,
       }}>
@@ -43,7 +43,7 @@ function Tile({ stream, name, color, isLocal, muted, camOff, camError, connected
       {!showVideo && (
         <div className="flex flex-col items-center gap-2 z-10">
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-black text-white"
-            style={{ background: color || 'linear-gradient(135deg,#8B5CF6,#F472B6)' }}>
+            style={{ background: color || 'linear-gradient(135deg,#00B4FF,#00E5A0)' }}>
             {initials(name)}
           </div>
           {camError && (
@@ -58,7 +58,7 @@ function Tile({ stream, name, color, isLocal, muted, camOff, camError, connected
       {!isLocal && !connected && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-20">
           <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-black text-white"
-            style={{ background: color || 'linear-gradient(135deg,#8B5CF6,#F472B6)' }}>
+            style={{ background: color || 'linear-gradient(135deg,#00B4FF,#00E5A0)' }}>
             {initials(name)}
           </div>
           <div className="flex items-center gap-1.5 text-gray-400 text-xs">

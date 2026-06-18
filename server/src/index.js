@@ -52,7 +52,7 @@ app.use((req, _, next) => { req.io = io; next(); });
 
 // Also expose io via socketState so webhook (no req context) can emit
 const socketState = require('./socketState');
-socketState.io = io;;
+socketState.io = io;
 
 // ── Routes ─────────────────────────────────────────────────────
 app.use('/api/auth',     require('./routes/auth'));
@@ -62,8 +62,9 @@ app.use('/api/places',   require('./routes/places'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/invites',  require('./routes/invites'));
 app.use('/api/push',     require('./routes/push'));
+app.use('/api/tv',       require('./routes/tv'));
 
-app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'PRANA' }));
+app.get('/api/health', (_, res) => res.json({ status: 'ok', app: 'CLINK' }));
 
 // ── 404 catch-all ──────────────────────────────────────────────
 app.use((_, res) => res.status(404).json({ error: 'Not found' }));
@@ -82,5 +83,5 @@ require('./socket')(io);
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`\n✅  PRANA Server — port ${PORT}  (${process.env.NODE_ENV || 'development'})\n`);
+  console.log(`\n✅  CLINK Server — port ${PORT}  (${process.env.NODE_ENV || 'development'})\n`);
 });
