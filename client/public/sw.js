@@ -1,4 +1,4 @@
-const CACHE = 'prana-v1';
+const CACHE = 'clink-v2';
 
 // Cache the app shell on install
 self.addEventListener('install', e => {
