@@ -39,6 +39,9 @@ export default function Auth() {
       if (mode === 'signup') {
         if (!form.name.trim()) { setError('What should we call you?'); setLoading(false); return; }
         await register(form.name.trim(), form.email, form.password);
+        if (inviteCode) await api.post(`/invites/${inviteCode}/redeem`).catch(() => {});
+        nav('/home?welcome=1');
+        return;
       } else {
         await login(form.email, form.password);
       }

@@ -85,11 +85,13 @@ require('./socket')(io);
 
 const PORT = process.env.PORT || 4000;
 const db   = require('./db');
+const { startWeeklyReminder } = require('./weeklyReminder');
 
 (async () => {
   if (typeof db.init === 'function') {
     await db.init();
   }
+  startWeeklyReminder();
   server.listen(PORT, () => {
     console.log(`\n✅  CLINK Server — port ${PORT}  (${process.env.NODE_ENV || 'development'})\n`);
   });

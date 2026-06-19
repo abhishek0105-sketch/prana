@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Bell, LogOut, MapPin, Search, Check, X,
          Zap, Link, Clock, ChevronRight, Play } from 'lucide-react';
 import { useAuth }   from '../contexts/AuthContext';
@@ -56,6 +56,7 @@ export default function Home() {
   const { user, logout, updateCity } = useAuth();
   const socket = useSocket();
   const nav    = useNavigate();
+  const [searchParams] = useSearchParams();
   usePushNotifications();
 
   const [friends,         setFriends]         = useState([]);
@@ -75,6 +76,13 @@ export default function Home() {
   const [incomingHangout, setIncomingHangout] = useState(null);
 
   useEffect(() => { loadFriends(); loadRequests(); }, []);
+
+  useEffect(() => {
+    if (searchParams.get('welcome') === '1') {
+      setPanel('add');
+      nav('/home', { replace: true });
+    }
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
