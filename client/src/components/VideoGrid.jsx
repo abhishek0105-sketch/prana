@@ -17,7 +17,7 @@ function Tile({ stream, name, color, isLocal, muted, camOff, camError, connected
   const showVideo = stream && !camOff && !camError;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden flex items-center justify-center"
+    <div className="relative w-full h-full rounded-2xl overflow-hidden flex items-center justify-center"
       style={{
         background: '#0D0D1A',
         border: isLocal
