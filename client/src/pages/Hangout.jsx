@@ -198,6 +198,11 @@ export default function Hangout() {
       socket.on('peer-left', ({ userId: pid, name }) => {
         removePeer(pid);
         showNotif(`${name} left`);
+        // If no WebRTC peers remain the hangout is over — go home after a moment
+        if (Object.keys(pcsRef.current).length === 0) {
+          showNotif('Hangout ended');
+          setTimeout(() => { cleanup(); nav('/home'); }, 1500);
+        }
       });
 
       socket.on('hangout-ended', () => {
