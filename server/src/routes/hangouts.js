@@ -1,7 +1,9 @@
 const router = require('express').Router();
 const { v4: uuid } = require('uuid');
-const db   = require('../db');
-const auth = require('../middleware/auth');
+const db            = require('../db');
+const auth          = require('../middleware/auth');
+const { userSockets } = require('../socketState');
+const { sendPush }    = require('../pushService');
 
 const areFriends = async (id1, id2) =>
   !!(await db.findOne('friendships', f =>
@@ -34,6 +36,27 @@ router.post('/start', auth, async (req, res) => {
     id, initiator_id: req.user.id, partner_id,
     status: 'active', started_at: Date.now(), ended_at: null,
   });
+
+  // Notify partner immediately
+  const partnerSocketId = userSockets[partner_id];
+  const invitePayload = {
+    hangoutId: id,
+    from: { userId: req.user.id, name: req.user.name, color: req.user.avatar_color },
+    participants: [req.user.name],
+  };
+
+  if (partnerSocketId && req.io) {
+    req.io.to(partnerSocketId).emit('hangout-invite', invitePayload);
+  } else {
+    await sendPush(partner_id, {
+      title: `${req.user.name} wants to hang out! 🥂`,
+      body: 'Tap to join the hangout',
+      icon: '/icon-192.png',
+      tag: `hangout-${id}`,
+      url: `/hangout/${id}`,
+    });
+  }
+
   res.status(201).json({ id, existing: false });
 });
 
