@@ -12,6 +12,8 @@ import Invite from './pages/Invite';
 import TV from './pages/TV';
 import TVControl from './pages/TVControl';
 import ResetPassword from './pages/ResetPassword';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import InstallPrompt from './components/InstallPrompt';
 
 const Spinner = () => (
@@ -53,6 +55,8 @@ export default function App() {
         {/* Fully public — invite links work without any account */}
         <Route path="/invite/:code"     element={<Invite />} />
         <Route path="/reset-password"   element={<ResetPassword />} />
+        <Route path="/privacy"          element={<Privacy />} />
+        <Route path="/terms"            element={<Terms />} />
 
         {/* Smart TV — no login required */}
         <Route path="/tv"         element={<TV />} />

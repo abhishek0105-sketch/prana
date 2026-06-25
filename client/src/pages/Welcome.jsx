@@ -606,6 +606,16 @@ export default function Welcome() {
               }}>
               I already have an account
             </button>
+            <p style={{
+              textAlign: 'center', fontSize: '0.72rem',
+              color: 'rgba(255,255,255,0.22)', margin: '4px 0 0',
+              fontFamily: '"Inter",sans-serif', lineHeight: 1.5,
+            }}>
+              By signing up you agree to our{' '}
+              <span onClick={() => nav('/terms')} style={{ color: 'rgba(255,255,255,0.45)', cursor: 'pointer', textDecoration: 'underline' }}>Terms</span>
+              {' '}and{' '}
+              <span onClick={() => nav('/privacy')} style={{ color: 'rgba(255,255,255,0.45)', cursor: 'pointer', textDecoration: 'underline' }}>Privacy Policy</span>
+            </p>
           </div>
         </div>
       </div>

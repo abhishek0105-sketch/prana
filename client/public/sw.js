@@ -43,7 +43,7 @@ self.addEventListener('push', e => {
   try { data = e.data?.json() || {}; } catch {}
 
   e.waitUntil(
-    self.registration.showNotification(data.title || 'PRANA ✨', {
+    self.registration.showNotification(data.title || 'CLINK 🥂', {
       body:    data.body  || '',
       icon:    data.icon  || '/icon-192.png',
       badge:   '/icon-192.png',
